@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../repositories/auth_repository.dart';
 import 'login_screen.dart';
 import 'settings_screen.dart';
 import 'wallets_screen.dart';
@@ -14,6 +15,9 @@ class AccountScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentUser = AuthRepository().currentUser;
+    final email = currentUser?.email ?? '';
+    final avatarText = (email.isNotEmpty ? email[0] : 'U').toUpperCase();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Account'),
@@ -22,12 +26,16 @@ class AccountScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 32,
-            child: Text('V'),
+            child: Text(avatarText),
           ),
           const SizedBox(height: 12),
-          const Center(child: Text('Free account')), // phỏng đoán text
+          const Center(child: Text('Free account')),
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Center(child: Text(email)),
+          ],
           const SizedBox(height: 24),
           ListTile(
             leading: const Icon(Icons.account_balance_wallet_outlined),
@@ -61,7 +69,7 @@ class AccountScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: const Text('Sign out'),
-            subtitle: const Text('demo@finwise.app'),
+            subtitle: email.isNotEmpty ? Text(email) : null,
             onTap: () {
               Navigator.of(context).pushNamedAndRemoveUntil(
                 LoginScreen.routeName,

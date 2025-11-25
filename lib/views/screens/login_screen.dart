@@ -82,11 +82,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: Icons.g_mobiledata,
                   borderColor: Colors.red.shade400,
                 ),
-                const SizedBox(height: 12),
-                const _SocialButton(
-                  label: 'SIGN IN WITH APPLE',
-                  icon: Icons.apple,
-                ),
+                // const SizedBox(height: 12),
+                // const _SocialButton(
+                //   label: 'SIGN IN WITH APPLE',
+                //   icon: Icons.apple,
+                // ),
                 const SizedBox(height: 24),
                 const Center(child: Text('OR')),
                 const SizedBox(height: 24),

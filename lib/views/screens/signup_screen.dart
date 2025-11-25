@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../repositories/auth_repository.dart';
 import '../../theme/app_theme.dart';
@@ -95,11 +96,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   icon: Icons.g_mobiledata,
                   borderColor: Colors.red.shade400,
                 ),
-                const SizedBox(height: 12),
-                const _SocialButton(
-                  label: 'SIGN IN WITH APPLE',
-                  icon: Icons.apple,
-                ),
+                // const SizedBox(height: 12),
+                // const _SocialButton(
+                //   label: 'SIGN IN WITH APPLE',
+                //   icon: Icons.apple,
+                // ),
                 const SizedBox(height: 24),
                 const Center(
                   child: Text(
@@ -134,6 +135,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 _TextField(
                   controller: _dobController,
                   label: 'DOB (yyyy-mm-dd)',
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    _DobInputFormatter(),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -209,12 +214,14 @@ class _TextField extends StatelessWidget {
   final String label;
   final bool obscureText;
   final Widget? suffixIcon;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _TextField({
     required this.controller,
     required this.label,
     this.obscureText = false,
     this.suffixIcon,
+    this.inputFormatters,
   });
 
   @override
@@ -222,10 +229,39 @@ class _TextField extends StatelessWidget {
     return TextField(
       controller: controller,
       obscureText: obscureText,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         suffixIcon: suffixIcon,
       ),
+    );
+  }
+}
+
+class _DobInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Only digits are allowed by FilteringTextInputFormatter, so we just format.
+    var digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length > 8) {
+      digits = digits.substring(0, 8);
+    }
+
+    var buffer = StringBuffer();
+    for (var i = 0; i < digits.length; i++) {
+      buffer.write(digits[i]);
+      if (i == 3 || i == 5) {
+        buffer.write('-');
+      }
+    }
+
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

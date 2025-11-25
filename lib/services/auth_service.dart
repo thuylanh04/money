@@ -37,12 +37,14 @@ class ApiAuthService implements AuthService {
 
   @override
   Future<User> signIn({required String email, required String password}) async {
-    // POST https://a63f923336f4.ngrok-free.app/authen
-    final json = await _client.post('/authen', body: {
-      'email': email,
+    // POST {apiBaseUrl}/authen
+    // Backend expects: { "username": "...", "password": "..." }
+    // Similar to signUp, we only care that the call succeeds (2xx).
+    await _client.post('/authen', body: {
+      'username': email,
       'password': password,
     });
-    return User.fromJson(json['user'] as Map<String, dynamic>);
+    return User(id: 'signin', name: email, email: email);
   }
 
   @override
@@ -51,12 +53,15 @@ class ApiAuthService implements AuthService {
     required String password,
     String? dob,
   }) async {
-    // POST https://a63f923336f4.ngrok-free.app/api/v1/users/signup
-    final json = await _client.post('/api/v1/users/signup', body: {
-      'email': email,
+    // POST {apiBaseUrl}/api/v1/users/signup
+    // Backend example payload: { "username": "...", "password": "...", "dob": "2008-08-16" }
+    // We only care that the request succeeds (2xx). The body shape may vary,
+    // so we don't rely on a specific 'user' field here.
+    await _client.post('/api/v1/users/signup', body: {
+      'username': email,
       'password': password,
       if (dob != null) 'dob': dob,
     });
-    return User.fromJson(json['user'] as Map<String, dynamic>);
+    return User(id: 'signup', name: email, email: email);
   }
 }

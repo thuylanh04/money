@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 
 class AuthRepository {
   late final AuthService _service;
+  User? _currentUser;
 
   AuthRepository._internal(this._service);
 
@@ -14,15 +15,21 @@ class AuthRepository {
 
   factory AuthRepository() => _instance;
 
-  Future<User> signIn({required String email, required String password}) {
-    return _service.signIn(email: email, password: password);
+  User? get currentUser => _currentUser;
+
+  Future<User> signIn({required String email, required String password}) async {
+    final user = await _service.signIn(email: email, password: password);
+    _currentUser = user;
+    return user;
   }
 
   Future<User> signUp({
     required String email,
     required String password,
     String? dob,
-  }) {
-    return _service.signUp(email: email, password: password, dob: dob);
+  }) async {
+    final user = await _service.signUp(email: email, password: password, dob: dob);
+    _currentUser = user;
+    return user;
   }
 }
