@@ -87,7 +87,7 @@ class OnboardingScreen extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: const [
                               Text(
-                                '840',
+                                '840',
                                 style: TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
@@ -112,12 +112,12 @@ class OnboardingScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     _SavingCard(
                       title: 'New phone',
-                      amount: '+320',
+                      amount: '+320',
                     ),
                     const SizedBox(height: 8),
                     _SavingCard(
                       title: 'Saving account',
-                      amount: '+520',
+                      amount: '+520',
                     ),
                     SizedBox(height: constraints.maxHeight * 0.1),
                     const Center(
@@ -135,19 +135,33 @@ class OnboardingScreen extends StatelessWidget {
                       child: _PageIndicator(activeIndex: 2, total: 5),
                     ),
                     SizedBox(height: constraints.maxHeight * 0.06),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(context).pushNamed(SignUpScreen.routeName);
-                      },
-                      child: const Text('SIGN UP FOR FREE'),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context)
+                              .pushNamed(SignUpScreen.routeName);
+                        },
+                        child: const Text('SIGN UP FOR FREE'),
+                      ),
                     ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).pushNamed(LoginScreen.routeName);
-                      },
-                      child: const Text('SIGN IN'),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context)
+                              .pushNamed(LoginScreen.routeName);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppTheme.primaryGreen,
+                          side: const BorderSide(color: AppTheme.primaryGreen),
+                        ),
+                        child: const Text('SIGN IN'),
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),

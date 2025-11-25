@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'login_screen.dart';
+import 'settings_screen.dart';
+import 'wallets_screen.dart';
+import 'categories_screen.dart';
+import 'bills_screen.dart';
+
 /// Account screen placeholder based on reference design (avatar, email, menu list).
 class AccountScreen extends StatelessWidget {
   static const String routeName = '/account';
@@ -15,29 +21,53 @@ class AccountScreen extends StatelessWidget {
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
-        children: const [
-          CircleAvatar(
+        children: [
+          const CircleAvatar(
             radius: 32,
             child: Text('V'),
           ),
-          SizedBox(height: 12),
-          Center(child: Text('Free account')), // phỏng đoán text
-          SizedBox(height: 24),
+          const SizedBox(height: 12),
+          const Center(child: Text('Free account')), // phỏng đoán text
+          const SizedBox(height: 24),
           ListTile(
-            leading: Icon(Icons.account_balance_wallet_outlined),
-            title: Text('My Wallets'),
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: const Text('My Wallets'),
+            onTap: () {
+              Navigator.of(context).pushNamed(WalletsScreen.routeName);
+            },
           ),
           ListTile(
-            leading: Icon(Icons.category_outlined),
-            title: Text('Categories'),
+            leading: const Icon(Icons.category_outlined),
+            title: const Text('Categories'),
+            onTap: () {
+              Navigator.of(context).pushNamed(CategoriesScreen.routeName);
+            },
           ),
           ListTile(
-            leading: Icon(Icons.receipt_long_outlined),
-            title: Text('Bills'),
+            leading: const Icon(Icons.receipt_long_outlined),
+            title: const Text('Bills'),
+            onTap: () {
+              Navigator.of(context).pushNamed(BillsScreen.routeName);
+            },
           ),
           ListTile(
-            leading: Icon(Icons.settings_outlined),
-            title: Text('Settings'),
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.of(context).pushNamed(SettingsScreen.routeName);
+            },
+          ),
+          const Divider(height: 32),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.redAccent),
+            title: const Text('Sign out'),
+            subtitle: const Text('demo@finwise.app'),
+            onTap: () {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                LoginScreen.routeName,
+                (route) => false,
+              );
+            },
           ),
         ],
       ),
