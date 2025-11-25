@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../models/category_fe.dart';
+import '../../models/category_group.dart';
+import '../../services/api_client.dart';
+import '../../services/category_service.dart';
+import '../../services/group_service.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/category_list_item.dart';
 
@@ -15,17 +20,22 @@ class SelectCategoryScreen extends StatefulWidget {
 class _SelectCategoryScreenState extends State<SelectCategoryScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  late List<String> _expenseCategories;
-  late List<String> _incomeCategories;
-  late List<String> _debtCategories;
+  late final CategoryService _categoryService;
+  late final GroupService _groupService;
+  List<CategoryFE> _expenseCategories = <CategoryFE>[];
+  List<CategoryFE> _incomeCategories = <CategoryFE>[];
+  List<CategoryFE> _debtCategories = <CategoryFE>[];
+  List<CategoryGroup> _groups = <CategoryGroup>[];
+  bool _isLoading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _expenseCategories = List<String>.from(expenseCategories);
-    _incomeCategories = List<String>.from(incomeCategories);
-    _debtCategories = List<String>.from(debtCategories);
+    _categoryService = CategoryService(ApiClient());
+    _groupService = GroupService(ApiClient());
+    _loadData();
   }
 
   @override
@@ -36,6 +46,11 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final expenseLabel = _groups.isNotEmpty ? _groups[0].groupName : 'EXPENSE';
+    final incomeLabel =
+        _groups.length > 1 ? _groups[1].groupName : 'INCOME';
+    final debtLabel =
+        _groups.length > 2 ? _groups[2].groupName : 'DEBT/LOAN';
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -55,22 +70,66 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
           indicatorColor: AppTheme.primaryGreen,
           labelColor: AppTheme.primaryGreen,
           unselectedLabelColor: AppTheme.textSecondary,
-          tabs: const [
-            Tab(text: 'EXPENSE'),
-            Tab(text: 'INCOME'),
-            Tab(text: 'DEBT/LOAN'),
+          tabs: [
+            Tab(text: expenseLabel.toUpperCase()),
+            Tab(text: incomeLabel.toUpperCase()),
+            Tab(text: debtLabel.toUpperCase()),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _CategoryList(_expenseCategories),
-          _CategoryList(_incomeCategories),
-          _CategoryList(_debtCategories),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _CategoryList(_expenseCategories),
+                    _CategoryList(_incomeCategories),
+                    _CategoryList(_debtCategories),
+                  ],
+                ),
     );
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final groups = await _groupService.fetchGroups();
+      final categories = await _categoryService.fetchCategories();
+      setState(() {
+        _groups = groups;
+
+        String? expenseIdFE;
+        String? incomeIdFE;
+        String? debtIdFE;
+        if (groups.isNotEmpty) expenseIdFE = groups[0].idFE;
+        if (groups.length > 1) incomeIdFE = groups[1].idFE;
+        if (groups.length > 2) debtIdFE = groups[2].idFE;
+
+        _expenseCategories = categories
+            .where((c) => expenseIdFE != null && c.groupIdFE == expenseIdFE)
+            .toList(growable: true);
+        _incomeCategories = categories
+            .where((c) => incomeIdFE != null && c.groupIdFE == incomeIdFE)
+            .toList(growable: true);
+        _debtCategories = categories
+            .where((c) => debtIdFE != null && c.groupIdFE == debtIdFE)
+            .toList(growable: true);
+
+        _isLoading = false;
+        _error = null;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Failed to load categories: ${e.toString()}';
+      });
+    }
   }
 
   void _showAddCategoryDialog() {
@@ -99,15 +158,40 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
                   return;
                 }
                 setState(() {
+                  final id = 'local-${DateTime.now().millisecondsSinceEpoch}';
+                  String expenseIdFE =
+                      _groups.isNotEmpty ? _groups[0].idFE : 'expense-local';
+                  String incomeIdFE =
+                      _groups.length > 1 ? _groups[1].idFE : 'income-local';
+                  String debtIdFE =
+                      _groups.length > 2 ? _groups[2].idFE : 'debt-local';
                   switch (_tabController.index) {
                     case 0:
-                      _expenseCategories.add(name);
+                      _expenseCategories.add(
+                        CategoryFE(
+                          idFE: id,
+                          categoryName: name,
+                          groupIdFE: expenseIdFE,
+                        ),
+                      );
                       break;
                     case 1:
-                      _incomeCategories.add(name);
+                      _incomeCategories.add(
+                        CategoryFE(
+                          idFE: id,
+                          categoryName: name,
+                          groupIdFE: incomeIdFE,
+                        ),
+                      );
                       break;
                     case 2:
-                      _debtCategories.add(name);
+                      _debtCategories.add(
+                        CategoryFE(
+                          idFE: id,
+                          categoryName: name,
+                          groupIdFE: debtIdFE,
+                        ),
+                      );
                       break;
                   }
                 });
@@ -123,7 +207,7 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
 }
 
 class _CategoryList extends StatelessWidget {
-  final List<String> items;
+  final List<CategoryFE> items;
 
   const _CategoryList(this.items);
 
@@ -132,10 +216,13 @@ class _CategoryList extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemBuilder: (context, index) {
-        final title = items[index];
+        final item = items[index];
         return CategoryListItem(
-          title: title,
+          title: item.categoryName,
           icon: Icons.category_outlined, // icon phỏng đoán
+          onTap: () {
+            Navigator.of(context).pop<CategoryFE>(item);
+          },
         );
       },
       separatorBuilder: (_, __) => const Divider(height: 1),
@@ -143,34 +230,3 @@ class _CategoryList extends StatelessWidget {
     );
   }
 }
-
-// Mock categories, phỏng đoán dựa trên screenshot.
-const expenseCategories = <String>[
-  'Bills & Utilities',
-  'Electricity Bill',
-  'Gas Bill',
-  'Education',
-  'Entertainment',
-  'Food & Beverage',
-  'Health & Fitness',
-  'Medical Checkup',
-  'Insurance',
-  'Investment',
-  'Shopping',
-  'Houseware',
-  'Transportation',
-];
-
-const incomeCategories = <String>[
-  'Collect Interest',
-  'Incoming transfer',
-  'Other Income',
-  'Salary',
-];
-
-const debtCategories = <String>[
-  'Debt',
-  'Debt Collection',
-  'Loan',
-  'Repayment',
-];

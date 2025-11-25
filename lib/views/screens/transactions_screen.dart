@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../../models/transaction.dart';
+import '../../services/transaction_service.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/transaction_list_item.dart';
 
@@ -56,13 +59,72 @@ class _TransactionsScreenState extends State<TransactionsScreen>
   }
 }
 
-class _TransactionsTabContent extends StatelessWidget {
+class _TransactionsTabContent extends StatefulWidget {
   const _TransactionsTabContent();
+
+  @override
+  State<_TransactionsTabContent> createState() => _TransactionsTabContentState();
+}
+
+class _TransactionsTabContentState extends State<_TransactionsTabContent> {
+  List<Transaction> _transactions = [];
+  bool _isLoading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
+  }
+
+  Future<void> _loadTransactions() async {
+    setState(() {
+      _isLoading = true;
+      _error = '';
+    });
+
+    try {
+      final transactions = await TransactionService.getTransactions();
+      if (mounted) {
+        setState(() {
+          _transactions = transactions;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load transactions. Please try again.';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  double get _totalIncome {
+    return _transactions
+        .where((t) => t.amount > 0)
+        .fold(0, (sum, t) => sum + t.amount);
+  }
+
+  double get _totalExpense {
+    return _transactions
+        .where((t) => t.amount < 0)
+        .fold(0, (sum, t) => sum + t.amount);
+  }
+
+  String _formatCurrency(double amount) {
+    return amount.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (match) => '${match[1]},',
+        );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Summary Card
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -77,83 +139,120 @@ class _TransactionsTabContent extends StatelessWidget {
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
+            children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Inflow',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                  SizedBox(height: 4),
-                  Text('0',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Inflow',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatCurrency(_totalIncome),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryGreen,
+                    ),
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Outflow',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                  SizedBox(height: 4),
-                  Text('-500,000',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Outflow',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatCurrency(_totalExpense.abs()),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.error,
+                    ),
+                  ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Balance',
-                      style: TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-                  SizedBox(height: 4),
-                  Text('-500,000',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Balance',
+                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatCurrency(_totalIncome + _totalExpense),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
         ),
         const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () {
-                // TODO: navigate to reports for this period.
-              },
-              child: const Text('View report for this period'),
+        // Transaction List
+        if (_isLoading)
+          const Expanded(
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else if (_error.isNotEmpty)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _error,
+                    style: const TextStyle(color: AppTheme.error),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _loadTransactions,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (_transactions.isEmpty)
+          const Expanded(
+            child: Center(
+              child: Text('No transactions found'),
+            ),
+          )
+        else
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadTransactions,
+              child: ListView.separated(
+                itemCount: _transactions.length,
+                separatorBuilder: (context, index) => const Divider(height: 1, thickness: 1),
+                itemBuilder: (context, index) {
+                  final transaction = _transactions[index];
+                  return TransactionListItem(
+                    transaction: transaction,
+                    onTap: () {
+                      // Navigate to transaction detail
+                      // Navigator.pushNamed(
+                      //   context,
+                      //   TransactionDetailScreen.routeName,
+                      //   arguments: transaction,
+                      // );
+                    },
+                  );
+                },
+              ),
             ),
           ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            children: const [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Text(
-                  '24 Today',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-              Card(
-                margin: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: TransactionListItem(
-                  title: 'Health & Fitness',
-                  subtitle: 'Health & Fitness',
-                  amount: '500,000',
-                  icon: Icons.health_and_safety,
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }

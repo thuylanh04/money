@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../config/env_config.dart';
 import '../models/user.dart';
 import '../services/api_client.dart';
 
@@ -37,13 +38,26 @@ class ApiAuthService implements AuthService {
 
   @override
   Future<User> signIn({required String email, required String password}) async {
-    // POST {apiBaseUrl}/authen
+    // POST {apiBaseUrl}/api/v1/authens
     // Backend expects: { "username": "...", "password": "..." }
-    // Similar to signUp, we only care that the call succeeds (2xx).
-    await _client.post('/authen', body: {
+    // Response shape:
+    // { "code": 1000, "result": { "token": "...", "authenticated": true } }
+    final data = await _client.post('/api/v1/authens', body: {
       'username': email,
       'password': password,
     });
+
+    try {
+      final result = data['result'];
+      if (result is Map<String, dynamic>) {
+        final token = result['token'] as String?;
+        if (token != null && token.isNotEmpty) {
+          EnvConfig.apiAuthHeader = 'Bearer $token';
+        }
+      }
+    } catch (_) {
+      // If parsing fails, we just skip setting the token.
+    }
     return User(id: 'signin', name: email, email: email);
   }
 

@@ -5,11 +5,13 @@ import '../../theme/app_theme.dart';
 class CategoryListItem extends StatelessWidget {
   final String title;
   final IconData icon;
+  final VoidCallback? onTap;
 
   const CategoryListItem({
     super.key,
     required this.title,
     required this.icon,
+    this.onTap,
   });
 
   @override
@@ -23,6 +25,7 @@ class CategoryListItem extends StatelessWidget {
         title,
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       ),
+      onTap: onTap,
     );
   }
 }
