@@ -681,7 +681,22 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   }
 
   Future<void> _runReceiptAnalysis(XFile file) async {
-    await _receiptRepository.analyzeReceipt(file);
+    try {
+      final receiptData = await _receiptRepository.processReceipt(file);
+      if (mounted) {
+        setState(() {
+          _amountController.text = receiptData.amount.toString();
+          _noteController.text = receiptData.note ?? '';
+          // TODO: Update category if needed when category selection is implemented
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi khi xử lý hóa đơn: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _runAiClassification() async {

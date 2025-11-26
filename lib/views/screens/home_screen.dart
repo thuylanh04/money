@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import '../../theme/app_theme.dart';
+import '../../services/chart_service.dart';
 import 'account_screen.dart';
-import 'plans_screen.dart';
+import 'analysis_screen.dart';
 import 'transaction_detail_screen.dart';
 import 'transactions_screen.dart';
 
@@ -23,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final pages = [
       const _HomeContent(),
       const TransactionsScreen(),
-      const PlansScreen(),
+      const AnalysisScreen(),
       const AccountScreen(),
     ];
 
@@ -46,8 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Transactions',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.savings_outlined),
-            label: 'Budgets',
+            icon: Icon(Icons.pie_chart_outline),
+            label: 'Phân tích',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
@@ -56,12 +58,15 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).pushNamed(TransactionDetailScreen.routeName);
-        },
-        backgroundColor: AppTheme.primaryGreen,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: FloatingActionButton(
+          onPressed: () {
+            Navigator.of(context).pushNamed(TransactionDetailScreen.routeName);
+          },
+          backgroundColor: AppTheme.primaryGreen,
+          child: const Icon(Icons.add, color: Colors.white),
+        ),
       ),
     );
   }
@@ -69,39 +74,40 @@ class _HomeScreenState extends State<HomeScreen> {
 
 /// Home content dựa trên screenshot: balance, wallet card, report card, banner, top spending, recent transactions.
 class _HomeContent extends StatelessWidget {
-  const _HomeContent();
+  const _HomeContent({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final horizontalPadding = media.size.width > 600 ? media.size.width * 0.08 : 16.0;
-
-    return Container(
-      color: const Color(0xFFF6F7FB),
-      child: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _HomeHeader(),
-            const SizedBox(height: 12),
-            const _WalletCard(),
-            const SizedBox(height: 16),
-            const _ReportSection(),
-            const SizedBox(height: 16),
-            const _PromoBanner(),
-            const SizedBox(height: 16),
-            const _TopSpendingSection(),
-            const SizedBox(height: 16),
-            const _RecentTransactionsSection(),
-          ],
-        ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _HomeHeader(),
+          const SizedBox(height: 24),
+          const _WalletCard(),
+          const SizedBox(height: 24),
+          const _ReportSection(),
+          const SizedBox(height: 24),
+          const _PromoBanner(),
+          const SizedBox(height: 24),
+          const _TopSpendingSection(),
+          const SizedBox(height: 24),
+          const _RecentTransactionsSection(),
+        ],
       ),
     );
   }
 }
 
-class _HomeHeader extends StatelessWidget {
+class _HomeHeader extends StatefulWidget {
+  @override
+  _HomeHeaderState createState() => _HomeHeaderState();
+}
+
+class _HomeHeaderState extends State<_HomeHeader> {
+  bool _showBalance = true;
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -109,16 +115,33 @@ class _HomeHeader extends StatelessWidget {
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              '-\$ 500,000',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-              ),
+          children: [
+            Row(
+              children: [
+                Text(
+                  _showBalance ? '-\$ 500,000' : '••••••',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showBalance = !_showBalance;
+                    });
+                  },
+                  child: Icon(
+                    _showBalance ? Icons.visibility_off : Icons.visibility,
+                    size: 20,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 4),
-            Text(
+            const SizedBox(height: 4),
+            const Text(
               'Total balance',
               style: TextStyle(
                 fontSize: 12,
@@ -225,20 +248,27 @@ class _ReportSection extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
+            children: [
+              const Text(
                 'Report this month',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              Text(
-                'See reports',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.primaryGreen,
-                  fontWeight: FontWeight.w500,
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AnalysisScreen()),
+                  );
+                },
+                child: const Text(
+                  'See reports',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.primaryGreen,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -257,13 +287,97 @@ class _ReportSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Container(
+          SizedBox(
             height: 140,
             width: double.infinity,
-            alignment: Alignment.center,
-            child: const Text(
-              'Chart placeholder',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+            child: LineChart(
+              LineChartData(
+                minX: 1,
+                maxX: 30,
+                minY: 0,
+                maxY: 600000,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: true,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: Colors.grey.withOpacity(0.15),
+                    strokeWidth: 1,
+                  ),
+                  getDrawingVerticalLine: (value) => FlLine(
+                    color: Colors.grey.withOpacity(0.1),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 24,
+                      getTitlesWidget: (value, meta) {
+                        if (value == 1) {
+                          return const Text('01/11',
+                              style: TextStyle(fontSize: 10));
+                        }
+                        if (value == 30) {
+                          return const Text('30/11',
+                              style: TextStyle(fontSize: 10));
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        if (value == 100000) {
+                          return const Text('100K',
+                              style: TextStyle(fontSize: 10));
+                        }
+                        if (value == 200000) {
+                          return const Text('200K',
+                              style: TextStyle(fontSize: 10));
+                        }
+                        if (value == 300000) {
+                          return const Text('300K',
+                              style: TextStyle(fontSize: 10));
+                        }
+                        if (value == 400000) {
+                          return const Text('400K',
+                              style: TextStyle(fontSize: 10));
+                        }
+                        if (value == 500000) {
+                          return const Text('500K',
+                              style: TextStyle(fontSize: 10));
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    isCurved: true,
+                    color: Colors.red,
+                    barWidth: 2,
+                    dotData: FlDotData(show: true),
+                    spots: const [
+                      FlSpot(1, 0),
+                      FlSpot(15, 0),
+                      FlSpot(24, 500000),
+                      FlSpot(30, 500000),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),

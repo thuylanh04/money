@@ -10,6 +10,7 @@ class AppTheme {
   static const Color textPrimary = Color(0xFF101010);
   static const Color textSecondary = Color(0xFF707070);
   static const Color error = Color(0xFFFF3B30); // Red color for errors and expenses
+  static const Color errorRed = error; // Alias for backward compatibility
 
   static ThemeData get lightTheme {
     final base = ThemeData.light(useMaterial3: false);
