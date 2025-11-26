@@ -41,28 +41,57 @@ class _BillTileState extends State<_BillTile> {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: AppTheme.primaryGreen.withOpacity(0.08),
-        child: Icon(widget.bill.icon, color: AppTheme.primaryGreen),
-      ),
-      title: Text(widget.bill.name),
-      subtitle: Text('Due ${widget.bill.dueDate}'),
-      trailing: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.end,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            widget.bill.amount,
-            style: const TextStyle(fontWeight: FontWeight.w600),
+          // Icon
+          CircleAvatar(
+            backgroundColor: AppTheme.primaryGreen.withOpacity(0.08),
+            child: Icon(widget.bill.icon, color: AppTheme.primaryGreen, size: 20),
           ),
-          const SizedBox(height: 4),
-          Switch.adaptive(
-            value: _remind,
-            onChanged: (v) {
-              setState(() => _remind = v);
-            },
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          const SizedBox(width: 16),
+          // Bill info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.bill.name,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Due ${widget.bill.dueDate}',
+                  style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          // Amount and switch
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                widget.bill.amount,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              ),
+              const SizedBox(height: 4),
+              Transform.scale(
+                scale: 0.8,
+                alignment: Alignment.centerRight,
+                child: Switch.adaptive(
+                  value: _remind,
+                  onChanged: (v) {
+                    setState(() => _remind = v);
+                  },
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
           ),
         ],
       ),
