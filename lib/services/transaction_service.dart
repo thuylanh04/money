@@ -1,12 +1,13 @@
+// lib/services/transaction_service.dart
+import 'package:money_manage/services/storage_service.dart';
+import 'package:money_manage/models/transaction.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:money_manage/config/env_config.dart';
-import 'package:money_manage/models/transaction.dart';
 
 class TransactionService {
-  static const String _baseUrl = 'https://e34b199081e2.ngrok-free.app/api/v1';
-  
-  static Future<Map<String, dynamic>?> createTransaction({
+  static const String _baseUrl = 'https://9931cba145c7.ngrok-free.app/api/v1';
+
+  static Future<Map<String, dynamic>> createTransaction({
     required double amount,
     required String date,
     String? note,
@@ -15,69 +16,80 @@ class TransactionService {
     required String walletIdFE,
   }) async {
     try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
       final response = await http.post(
         Uri.parse('$_baseUrl/transactions'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': EnvConfig.apiAuthHeader,
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
         body: json.encode({
           'amount': amount,
           'date': date,
-          'note': note,
-          'image': image,
+          if (note != null) 'note': note,
+          if (image != null) 'image': image,
           'categoryIdFE': categoryIdFE,
           'walletIdFE': walletIdFE,
         }),
       );
 
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
+      print('Create Transaction Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
         if (responseData['code'] == 1000) {
-          return responseData['result'];
+          return responseData['result'] as Map<String, dynamic>;
         } else {
-          print('API Error: ${responseData['message'] ?? 'Unknown error'}');
-          return null;
+          throw Exception(responseData['message'] ?? 'Failed to create transaction');
         }
       } else {
-        print('Failed to create transaction: ${response.statusCode} - ${response.body}');
-        return null;
+        throw Exception('Failed to create transaction: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error creating transaction: $e');
-      return null;
+      print('Error in createTransaction: $e');
+      rethrow;
     }
   }
 
-  /// Fetches the list of transactions from the API
-  static Future<List<Transaction>> getTransactions() async {
+  static Future<List<Transaction>> getUserTransactions() async {
     try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
       final response = await http.get(
         Uri.parse('$_baseUrl/transactions'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': EnvConfig.apiAuthHeader,
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
         },
       );
 
+      print('Get Transactions Response: ${response.statusCode} - ${response.body}');
+
       if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        if (data['code'] == 1000) {
-          final List<dynamic> transactionsData = data['result'] ?? [];
-          return transactionsData
-              .map<Transaction>((json) => Transaction.fromJson(Map<String, dynamic>.from(json)))
-              .toList();
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['code'] == 1000) {
+          final List<dynamic> transactionsData = responseData['result'];
+          return transactionsData.map((json) => Transaction.fromJson(json)).toList();
         } else {
-          print('API Error: ${data['message'] ?? 'Unknown error'}');
-          return [];
+          throw Exception(responseData['message'] ?? 'Failed to fetch transactions');
         }
       } else {
-        print('Failed to fetch transactions: ${response.statusCode} - ${response.body}');
-        return [];
+        throw Exception('Failed to fetch transactions: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching transactions: $e');
-      return [];
+      print('Error in getUserTransactions: $e');
+      rethrow;
     }
   }
+
+  // ... rest of the TransactionService class
 }

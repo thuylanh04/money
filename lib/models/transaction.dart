@@ -1,3 +1,4 @@
+// lib/models/transaction.dart
 class Transaction {
   final String idFE;
   final double amount;
@@ -6,8 +7,10 @@ class Transaction {
   final String? image;
   final String? categoryIdFE;
   final String? walletIdFE;
+  final String? categoryName;
+  final String? walletName;
 
-  const Transaction({
+  Transaction({
     required this.idFE,
     required this.amount,
     required this.date,
@@ -15,17 +18,31 @@ class Transaction {
     this.image,
     this.categoryIdFE,
     this.walletIdFE,
+    this.categoryName,
+    this.walletName,
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
+    // Extract category name from categoryIdFE (format: 'Name...')
+    String? extractName(String? idFE) {
+      if (idFE == null) return null;
+      // Extract the name part before the date string
+      final dateIndex = idFE.indexOf(RegExp(r'[A-Za-z]{3} [A-Za-z]{3} \d{1,2} \d{2}:\d{2}:\d{2}'));
+      return dateIndex > 0 ? idFE.substring(0, dateIndex).trim() : idFE;
+    }
+
     return Transaction(
-      idFE: json['idFE'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      date: DateTime.parse(json['date'] as String),
-      note: json['note'] as String?,
-      image: json['image'] as String?,
-      categoryIdFE: json['categoryIdFE'] as String?,
-      walletIdFE: json['walletIdFE'] as String?,
+      idFE: json['idFE']?.toString() ?? '',
+      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      date: json['date'] != null 
+          ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      note: json['note']?.toString(),
+      image: json['image']?.toString(),
+      categoryIdFE: json['categoryIdFE']?.toString(),
+      walletIdFE: json['walletIdFE']?.toString(),
+      categoryName: extractName(json['categoryIdFE']?.toString()),
+      walletName: extractName(json['walletIdFE']?.toString()),
     );
   }
 
@@ -34,16 +51,10 @@ class Transaction {
       'idFE': idFE,
       'amount': amount,
       'date': date.toIso8601String(),
-      'note': note,
-      'image': image,
-      'categoryIdFE': categoryIdFE,
-      'walletIdFE': walletIdFE,
+      if (note != null) 'note': note,
+      if (image != null) 'image': image,
+      if (categoryIdFE != null) 'categoryIdFE': categoryIdFE,
+      if (walletIdFE != null) 'walletIdFE': walletIdFE,
     };
   }
-  
-  // Helper method to get the transaction type (expense/income) based on amount
-  String get type => amount < 0 ? 'expense' : 'income';
-  
-  // Helper method to get the display amount (absolute value)
-  double get displayAmount => amount.abs();
 }

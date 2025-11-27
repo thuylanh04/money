@@ -419,49 +419,27 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     );
 
     try {
-      // Call the transaction service
       final result = await TransactionService.createTransaction(
         amount: amount,
-        date: formattedDate,
-        note: _noteController.text.isNotEmpty ? _noteController.text : null,
-        image: imagePath,
-        categoryIdFE: _selectedCategory!.idFE,
-        walletIdFE: _selectedWallet!.idFE,
+        date: _selectedDate.toIso8601String(),
+        note: _noteController.text.trim(),
+        image: _receiptImages.isNotEmpty ? _receiptImages.first.path : null,
+        categoryIdFE: _selectedCategory?.idFE ?? '',
+        walletIdFE: _selectedWallet?.idFE ?? '',
       );
-
-      // Dismiss loading dialog
+      
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-      }
-
-      if (result != null) {
-        // Show success message
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã thêm giao dịch thành công')),
-          );
-          // Navigate back with success
-          if (context.mounted) {
-            Navigator.of(context).pop(true);
-          }
-        }
-      } else {
-        // Show error message
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể thêm giao dịch. Vui lòng thử lại')),
-          );
-        }
+        Navigator.of(context).pop(); // Close loading dialog
+        Navigator.of(context).pop(true); // Close the screen and return success
       }
     } catch (e) {
-      print('Error saving transaction: $e');
-      // Dismiss loading dialog if still showing
       if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
+        Navigator.of(context).pop(); // Close loading dialog
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Có lỗi xảy ra. Vui lòng thử lại')),
+          SnackBar(content: Text('Lỗi khi tạo giao dịch: $e')),
         );
       }
+      print('Error creating transaction: $e');
     }
   }
 
