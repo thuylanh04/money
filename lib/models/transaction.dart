@@ -9,6 +9,8 @@ class Transaction {
   final String? walletIdFE;
   final String? categoryName;
   final String? walletName;
+  final String? groupIdFE;
+  final String? groupType;
 
   Transaction({
     required this.idFE,
@@ -20,7 +22,37 @@ class Transaction {
     this.walletIdFE,
     this.categoryName,
     this.walletName,
+    this.groupIdFE,
+    this.groupType,
   });
+
+  Transaction copyWith({
+    String? idFE,
+    double? amount,
+    DateTime? date,
+    String? note,
+    String? image,
+    String? categoryIdFE,
+    String? walletIdFE,
+    String? categoryName,
+    String? walletName,
+    String? groupIdFE,
+    String? groupType,
+  }) {
+    return Transaction(
+      idFE: idFE ?? this.idFE,
+      amount: amount ?? this.amount,
+      date: date ?? this.date,
+      note: note ?? this.note,
+      image: image ?? this.image,
+      categoryIdFE: categoryIdFE ?? this.categoryIdFE,
+      walletIdFE: walletIdFE ?? this.walletIdFE,
+      categoryName: categoryName ?? this.categoryName,
+      walletName: walletName ?? this.walletName,
+      groupIdFE: groupIdFE ?? this.groupIdFE,
+      groupType: groupType ?? this.groupType,
+    );
+  }
 
   factory Transaction.fromJson(Map<String, dynamic> json) {
     // Extract category name from categoryIdFE (format: 'Name...')

@@ -61,7 +61,7 @@ class MockReceiptService implements ReceiptService {
 }
 
 class ApiReceiptService implements ReceiptService {
-  static const String _baseUrl = 'https://3c8ea52a8aa1.ngrok-free.app/api/v1';
+  static const String _baseUrl = 'https://a2793545963a.ngrok-free.app/api/v1';
   
   @override
   Future<ReceiptData> processReceipt(XFile file) async {

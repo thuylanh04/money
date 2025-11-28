@@ -5,7 +5,69 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TransactionService {
-  static const String _baseUrl = 'https://3c8ea52a8aa1.ngrok-free.app/api/v1';
+  static const String _baseUrl = 'https://a2793545963a.ngrok-free.app/api/v1';
+
+  // Cache for categories
+  static Map<String, Map<String, dynamic>>? _categoriesCache;
+
+  // Get all categories and cache them
+  static Future<Map<String, Map<String, dynamic>>> getCategories() async {
+    if (_categoriesCache != null) {
+      return _categoriesCache!;
+    }
+
+    try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final response = await http.get(
+        Uri.parse('$_baseUrl/categories'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['code'] == 1000) {
+          final List<dynamic> categories = responseData['result'];
+          _categoriesCache = {};
+
+          for (var category in categories) {
+            _categoriesCache![category['idFE']] = {
+              'name': category['categoryname'],
+              'groupId': category['groupIdFE'],
+              'groupType': _getGroupType(category['groupIdFE'])
+            };
+          }
+
+          return _categoriesCache!;
+        }
+      }
+      throw Exception('Failed to load categories');
+    } catch (e) {
+      print('Error loading categories: $e');
+      rethrow;
+    }
+  }
+
+  // Helper to determine group type from groupIdFE
+  static String _getGroupType(String? groupIdFE) {
+    if (groupIdFE == null) return 'expense';
+
+    if (groupIdFE.startsWith('Income')) {
+      return 'income';
+    } else if (groupIdFE.startsWith('Expense')) {
+      return 'expense';
+    } else if (groupIdFE.startsWith('Debt-Loan')) {
+      return 'debt';
+    }
+    return 'expense'; // Default to expense
+  }
 
   static Future<Map<String, dynamic>> createTransaction({
     required double amount,
@@ -63,6 +125,9 @@ class TransactionService {
         throw Exception('No authentication token found');
       }
 
+      // Load categories first
+      final categories = await getCategories();
+      
       final response = await http.get(
         Uri.parse('$_baseUrl/transactions'),
         headers: {
@@ -78,7 +143,27 @@ class TransactionService {
         final Map<String, dynamic> responseData = json.decode(response.body);
         if (responseData['code'] == 1000) {
           final List<dynamic> transactionsData = responseData['result'];
-          return transactionsData.map((json) => Transaction.fromJson(json)).toList();
+          return transactionsData.map<Transaction>((json) {
+            final transaction = Transaction.fromJson(json);
+            final categoryInfo = categories[transaction.categoryIdFE];
+            if (categoryInfo != null) {
+              // Create a new Transaction with the group information
+              return Transaction(
+                idFE: transaction.idFE,
+                amount: transaction.amount,
+                date: transaction.date,
+                note: transaction.note,
+                image: transaction.image,
+                categoryIdFE: transaction.categoryIdFE,
+                walletIdFE: transaction.walletIdFE,
+                categoryName: transaction.categoryName,
+                walletName: transaction.walletName,
+                groupIdFE: categoryInfo['groupId'],
+                groupType: categoryInfo['groupType'],
+              );
+            }
+            return transaction;
+          }).toList();
         } else {
           throw Exception(responseData['message'] ?? 'Failed to fetch transactions');
         }

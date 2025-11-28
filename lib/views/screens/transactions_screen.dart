@@ -16,13 +16,52 @@ class TransactionsScreen extends StatefulWidget {
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
   List<Transaction> _transactions = [];
+  List<Transaction> _filteredTransactions = [];
   bool _isLoading = true;
   String _error = '';
+  
+  // Time filter options
+  late final List<String> _timeFilters;
+  late String _selectedFilter;
+
+  // Helper method to format currency
+  String _formatCurrency(double amount) {
+    final formatter = NumberFormat('#,###', 'en_US');
+    return formatter.format(amount);
+  }
+  
+  // Helper method to determine if transaction is income
+  bool _isIncome(Transaction transaction) {
+    return transaction.groupType == 'income';
+  }
 
   @override
   void initState() {
     super.initState();
+    
+    // Initialize time filters based on current date
+    final now = DateTime.now();
+    final currentMonth = '${now.month.toString().padLeft(2, '0')}/${now.year}';
+    
+    // Calculate previous month
+    DateTime prevMonth = DateTime(now.year, now.month - 1, 1);
+    final previousMonth = '${prevMonth.month.toString().padLeft(2, '0')}/${prevMonth.year}';
+    
+    // Set the filters with dynamic months
+    _timeFilters = [
+      'Tháng này ($currentMonth)',
+      'Tháng trước ($previousMonth)',
+      '09/2025'  // Fixed date as per requirement
+    ];
+    _selectedFilter = _timeFilters[0];
+    
     _loadTransactions();
+    // Apply this month's filter by default
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applyFilter(_timeFilters[0]);
+      });
+    }
   }
 
   Future<void> _loadTransactions() async {
@@ -52,11 +91,88 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
   }
 
+  void _applyFilter(String filter) {
+    setState(() {
+      _selectedFilter = filter;
+      final now = DateTime.now();
+      
+      if (filter.startsWith('Tháng này')) {
+        _filteredTransactions = _transactions.where((transaction) {
+          final transactionDate = transaction.date;
+          return transactionDate.year == now.year && transactionDate.month == now.month;
+        }).toList();
+      } else if (filter.startsWith('Tháng trước')) {
+        final prevMonth = DateTime(now.year, now.month - 1, 1);
+        _filteredTransactions = _transactions.where((transaction) {
+          final transactionDate = transaction.date;
+          return transactionDate.year == prevMonth.year && transactionDate.month == prevMonth.month;
+        }).toList();
+      } else if (filter == '09/2025') {
+        _filteredTransactions = _transactions.where((transaction) {
+          final transactionDate = transaction.date;
+          return transactionDate.year == 2025 && transactionDate.month == 9;
+        }).toList();
+      }
+      
+      // Sort by date in descending order (newest first)
+      _filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Giao dịch'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Row(
+                  children: List.generate(_timeFilters.length, (index) {
+                    final isSelected = _selectedFilter == _timeFilters[index];
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => _applyFilter(_timeFilters[index]),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.white : Colors.transparent,
+                            borderRadius: BorderRadius.circular(25),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 2,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Text(
+                            _timeFilters[index],
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: isSelected ? Theme.of(context).primaryColor : Colors.grey[700],
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
       body: _buildBody(),
     );
@@ -83,18 +199,23 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       );
     }
 
-    if (_transactions.isEmpty) {
-      return const Center(child: Text('Không có giao dịch nào.'));
+    if (_filteredTransactions.isEmpty) {
+      return Column(
+        children: [
+          const SizedBox(height: 20),
+          Center(child: Text('Không có giao dịch nào trong $_selectedFilter.')),
+        ],
+      );
     }
 
     return RefreshIndicator(
       onRefresh: _loadTransactions,
       child: ListView.builder(
         padding: const EdgeInsets.all(8),
-        itemCount: _transactions.length,
+        itemCount: _filteredTransactions.length,
         itemBuilder: (context, index) {
-          final transaction = _transactions[index];
-          final formattedDate = DateFormat('HH:mm • dd/MM/yyyy').format(transaction.date);
+          final transaction = _filteredTransactions[index];
+          final formattedDate = DateFormat('dd/MM/yyyy').format(transaction.date);
           
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
@@ -104,14 +225,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   // Header (always visible)
                   ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: transaction.amount >= 0 
+                      backgroundColor: _isIncome(transaction)
                           ? Colors.green.withOpacity(0.1) 
                           : Colors.red.withOpacity(0.1),
                       child: Icon(
-                        transaction.amount >= 0 
-                            ? Icons.arrow_upward 
-                            : Icons.arrow_downward,
-                        color: transaction.amount >= 0 
+                        _isIncome(transaction)
+                            ? Icons.arrow_downward 
+                            : Icons.arrow_upward,
+                        color: _isIncome(transaction)
                             ? Colors.green 
                             : Colors.red,
                         size: 20,
@@ -128,15 +249,28 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       formattedDate,
                       style: const TextStyle(fontSize: 13),
                     ),
-                    trailing: Text(
-                      '${transaction.amount >= 0 ? '+' : ''}${transaction.amount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: transaction.amount >= 0 
-                            ? Colors.green 
-                            : Colors.red,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${_isIncome(transaction) ? '+' : '-'} ${_formatCurrency(transaction.amount.abs())}',
+                          style: TextStyle(
+                            color: _isIncome(transaction) 
+                                ? Colors.green 
+                                : Colors.red,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const Text(
+                          'USD',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ),
                     onTap: () {
                       ExpandableController.of(context)?.toggle();
@@ -198,32 +332,25 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, 
-      {IconData? icon, Color iconColor = Colors.grey}) {
+  Widget _buildDetailRow(String label, String value, {IconData? icon, Color? iconColor}) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (icon != null) ...[
+          Icon(icon, size: 18, color: iconColor ?? Colors.grey[600]),
+          const SizedBox(width: 8),
+        ],
         Text(
           '$label: ',
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: Colors.grey,
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 14,
           ),
         ),
-        Expanded(
-          child: Row(
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 18, color: iconColor),
-                const SizedBox(width: 4),
-              ],
-              Expanded(
-                child: Text(
-                  value,
-                  style: const TextStyle(color: Colors.black87),
-                ),
-              ),
-            ],
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
