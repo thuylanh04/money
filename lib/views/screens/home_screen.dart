@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
+import 'package:money_manage/models/transaction.dart';
+import 'package:money_manage/services/transaction_service.dart';
 
 import '../../theme/app_theme.dart';
 import '../../services/chart_service.dart';
@@ -91,9 +94,9 @@ class _HomeContent extends StatelessWidget {
           const SizedBox(height: 24),
           const _PromoBanner(),
           const SizedBox(height: 24),
-          const _TopSpendingSection(),
+          _TopSpendingSection(),
           const SizedBox(height: 24),
-          const _RecentTransactionsSection(),
+          _RecentTransactionsSection(),
         ],
       ),
     );
@@ -432,8 +435,61 @@ class _PromoBanner extends StatelessWidget {
   }
 }
 
-class _TopSpendingSection extends StatelessWidget {
+class _TopSpendingSection extends StatefulWidget {
   const _TopSpendingSection();
+
+  @override
+  _TopSpendingSectionState createState() => _TopSpendingSectionState();
+}
+
+class _TopSpendingSectionState extends State<_TopSpendingSection> {
+  List<Map<String, dynamic>> _topCategories = [];
+  bool _isLoading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTopSpending();
+  }
+
+  Future<void> _loadTopSpending() async {
+    try {
+      final transactions = await TransactionService.getUserTransactions();
+      
+      // Group transactions by category and sum amounts (only expenses)
+      final categoryMap = <String, double>{};
+      final categoryNames = <String, String>{};
+      
+      for (var transaction in transactions) {
+        if (transaction.groupType == 'expense' && transaction.categoryName != null) {
+          final categoryName = transaction.categoryName!;
+          categoryMap[categoryName] = (categoryMap[categoryName] ?? 0) + transaction.amount.abs();
+          categoryNames[categoryName] = categoryName;
+        }
+      }
+
+      // Convert to list and sort by amount in descending order
+      final sortedCategories = categoryMap.entries
+          .map((e) => {
+                'category': e.key,
+                'amount': e.value,
+              })
+          .toList()
+        ..sort((a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+
+      // Take top 5
+      setState(() {
+        _topCategories = sortedCategories.take(5).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load top spending';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -442,60 +498,133 @@ class _TopSpendingSection extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Top spending',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              'See details',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.primaryGreen,
+            GestureDetector(
+              onTap: () {
+                // Navigate to transactions screen with expense filter
+                Navigator.pushNamed(context, TransactionsScreen.routeName);
+              },
+              child: const Text(
+                'See details',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.primaryGreen,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: const [
-              CircleAvatar(
-                backgroundColor: AppTheme.primaryGreen,
-                child: Icon(Icons.health_and_safety, color: Colors.white),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Health & Fitness',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                ),
-              ),
-              Text(
-                '500,000',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_error.isNotEmpty)
+          Text(_error, style: const TextStyle(color: Colors.red))
+        else if (_topCategories.isEmpty)
+          const Text('No spending data available')
+        else
+          ..._topCategories.map((category) => _buildCategoryItem(
+                category['category'],
+                category['amount'],
+                _getCategoryIcon(category['category']),
+              )),
       ],
     );
   }
+
+  Widget _buildCategoryItem(String category, double amount, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
+            child: Icon(icon, color: AppTheme.primaryGreen),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              category,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
+          Text(
+            '\$${NumberFormat('#,###').format(amount)}',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.red, // Expense color
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    // Map categories to appropriate icons
+    final iconMap = {
+      'Food': Icons.restaurant,
+      'Transportation': Icons.directions_car,
+      'Shopping': Icons.shopping_bag,
+      'Entertainment': Icons.movie,
+      'Health': Icons.health_and_safety,
+      'Bills': Icons.receipt,
+      'Education': Icons.school,
+      'Others': Icons.category,
+    };
+
+    return iconMap[category] ?? Icons.category;
+  }
 }
 
-class _RecentTransactionsSection extends StatelessWidget {
+class _RecentTransactionsSection extends StatefulWidget {
   const _RecentTransactionsSection();
+
+  @override
+  _RecentTransactionsSectionState createState() => _RecentTransactionsSectionState();
+}
+
+class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> {
+  List<Transaction> _recentTransactions = [];
+  bool _isLoading = true;
+  String _error = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecentTransactions();
+  }
+
+  Future<void> _loadRecentTransactions() async {
+    try {
+      final transactions = await TransactionService.getUserTransactions();
+      
+      // Sort by date in descending order and take first 5
+      transactions.sort((a, b) => b.date.compareTo(a.date));
+      
+      setState(() {
+        _recentTransactions = transactions.take(5).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load recent transactions';
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -504,45 +633,105 @@ class _RecentTransactionsSection extends StatelessWidget {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text(
+          children: [
+            const Text(
               'Recent transactions',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Text(
-              'See all',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.primaryGreen,
+            GestureDetector(
+              onTap: () {
+                Navigator.pushNamed(context, TransactionsScreen.routeName);
+              },
+              child: const Text(
+                'See all',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.primaryGreen,
+                ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppTheme.primaryGreen,
-              child: Icon(Icons.health_and_safety, color: Colors.white),
-            ),
-            title: Text('Health & Fitness'),
-            subtitle: Text('24 November 2025'),
-            trailing: Text(
-              '500,000',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_error.isNotEmpty)
+          Text(_error, style: const TextStyle(color: Colors.red))
+        else if (_recentTransactions.isEmpty)
+          const Text('No recent transactions')
+        else
+          ..._recentTransactions.map((transaction) => _buildTransactionItem(transaction)),
       ],
     );
+  }
+
+  Widget _buildTransactionItem(Transaction transaction) {
+    final isExpense = transaction.groupType != 'income';
+    final icon = _getCategoryIcon(transaction.categoryName ?? 'Other');
+    final formattedDate = DateFormat('dd MMMM yyyy').format(transaction.date);
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isExpense 
+              ? Colors.red.withOpacity(0.1)
+              : AppTheme.primaryGreen.withOpacity(0.1),
+          child: Icon(
+            icon,
+            color: isExpense ? Colors.red : AppTheme.primaryGreen,
+          ),
+        ),
+        title: Text(
+          transaction.categoryName ?? 'Uncategorized',
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: Text(
+          formattedDate,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        trailing: Text(
+          '${isExpense ? '-' : '+'}\$${NumberFormat('#,###').format(transaction.amount)}',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: isExpense ? Colors.red : AppTheme.primaryGreen,
+          ),
+        ),
+        onTap: () {
+          // Navigate to transaction detail
+          Navigator.pushNamed(
+            context,
+            TransactionDetailScreen.routeName,
+            arguments: transaction.idFE,
+          );
+        },
+      ),
+    );
+  }
+
+  IconData _getCategoryIcon(String? category) {
+    if (category == null) return Icons.category;
+    
+    final iconMap = {
+      'Food': Icons.restaurant,
+      'Transportation': Icons.directions_car,
+      'Shopping': Icons.shopping_bag,
+      'Entertainment': Icons.movie,
+      'Health': Icons.health_and_safety,
+      'Bills': Icons.receipt,
+      'Education': Icons.school,
+      'Salary': Icons.work,
+      'Investment': Icons.trending_up,
+      'Gift': Icons.card_giftcard,
+    };
+
+    return iconMap[category] ?? Icons.category;
   }
 }
