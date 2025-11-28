@@ -8,6 +8,7 @@ import 'package:money_manage/config/env_config.dart';
 
 import '../../models/category_fe.dart';
 import '../../models/category_group.dart';
+import '../../models/transaction.dart';
 import '../../models/wallet.dart';
 import '../../services/api_client.dart';
 import '../../services/group_service.dart';
@@ -19,11 +20,25 @@ import '../../theme/app_theme.dart';
 import 'select_category_screen.dart';
 
 /// Transaction detail / Add transaction screen.
-/// Layout được phỏng đoán dựa trên screenshot "Add transaction".
+/// Layout based on "Add transaction" screenshot.
 class TransactionDetailScreen extends StatefulWidget {
   static const String routeName = '/transaction-detail';
+  final Transaction? transaction;
 
-  const TransactionDetailScreen({super.key});
+  const TransactionDetailScreen({super.key, this.transaction});
+
+  // Add this static method to handle route generation
+  static Route<dynamic> generateRoute(RouteSettings settings) {
+    if (settings.arguments != null) {
+      final transaction = settings.arguments as Transaction;
+      return MaterialPageRoute(
+        builder: (context) => TransactionDetailScreen(transaction: transaction),
+      );
+    }
+    return MaterialPageRoute(
+      builder: (context) => const TransactionDetailScreen(),
+    );
+  }
 
   @override
   State<TransactionDetailScreen> createState() => _TransactionDetailScreenState();
@@ -62,10 +77,60 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   String? _debtGroupIdFE;
   CategoryFE? _selectedCategory;
 
+  // Helper method to determine if a transaction is income
+  bool _isIncome(Transaction transaction) {
+    return transaction.amount >= 0;
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: 0);
+    _fetchWallets();
+    _loadCategories();
+    
+    // Pre-fill form if editing existing transaction
+    if (widget.transaction != null) {
+      final transaction = widget.transaction!;
+      _amountController.text = transaction.amount.abs().toString();
+      _noteController.text = transaction.note ?? '';
+      _selectedDate = transaction.date;
+      
+      // Set the transaction type tab (income/expense)
+      final tabIndex = _isIncome(transaction) ? 0 : 1;
+      _tabController.animateTo(tabIndex);
+      
+      // Load category if available
+      if (transaction.categoryIdFE != null) {
+        // Find and set the category
+        try {
+          final category = _categories.firstWhere(
+            (c) => c.idFE == transaction.categoryIdFE,
+          );
+          _selectedCategory = category;
+        } catch (e) {
+          // If category not found, create a basic one with the available data
+          _selectedCategory = CategoryFE(
+            idFE: transaction.categoryIdFE!,
+            categoryName: transaction.categoryName ?? 'Unknown',
+            groupIdFE: '', // We don't have this info, using empty string
+          );
+        }
+      }
+      
+      // Load wallet if available
+      if (transaction.walletIdFE != null) {
+        _selectedWallet = Wallet(
+          idFE: transaction.walletIdFE!,
+          walletName: transaction.walletName ?? 'Unknown',
+        );
+      }
+      
+      // Load receipt image if exists
+      if (transaction.image != null) {
+        // You may need to handle loading the image from the URL here
+      }
+    }
     _tabController.addListener(_handleTabChanged);
     _loadGroups();
     _fetchWallets();
@@ -152,7 +217,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: const Text('Add transaction'),
+        title: Text(widget.transaction != null ? 'Edit Transaction' : 'Add Transaction'),
         centerTitle: true,
         bottom: TabBar(
           controller: _tabController,
@@ -187,8 +252,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   _RowItem(
                     leading: const Icon(Icons.category_outlined),
                     title: _selectedCategory?.categoryName ?? 'Select category',
-                    subtitle:
-                        _selectedCategory == null ? 'Tap to choose' : null,
+                    subtitle: _selectedCategory == null ? 'Tap to choose' : null,
                     showChevron: true,
                     onTap: () async {
                       final result = await Navigator.of(context).pushNamed(
@@ -205,8 +269,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   const SizedBox(height: 12),
                   _RowItem(
                     leading: const Icon(Icons.notes_outlined),
-                    title: 'Write note',
-                    subtitle: 'Optional',
+                    title: _noteController.text.isNotEmpty ? _noteController.text : 'Write note',
+                    subtitle: _noteController.text.isEmpty ? 'Optional' : null,
                   ),
                   const SizedBox(height: 12),
                   _buildReceiptRow(context),
@@ -214,7 +278,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   _RowItem(
                     leading: const Icon(Icons.calendar_today_outlined),
                     title: _formatDate(_selectedDate),
-                    subtitle: 'Date',
+                    subtitle: 'Transaction Date',
                     showChevron: true,
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -234,14 +298,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   _RowItem(
                     leading: const Icon(Icons.person_outline),
                     title: 'With',
-                    subtitle: 'None',
+                    subtitle: 'Select contact',
                     showChevron: true,
                   ),
                   const SizedBox(height: 12),
                   _RowItem(
                     leading: const Icon(Icons.event_outlined),
                     title: 'Select event',
-                    subtitle: 'No event',
+                    subtitle: 'No event selected',
                     showChevron: true,
                   ),
                   const SizedBox(height: 12),
@@ -250,7 +314,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                     onChanged: (_) {},
                     title: const Text('Exclude from report'),
                     subtitle: const Text(
-                      'Don\'t include this transaction in reports such as Overview.',
+                      'This transaction will not be included in reports and statistics.',
                       style: TextStyle(fontSize: 12),
                     ),
                   ),

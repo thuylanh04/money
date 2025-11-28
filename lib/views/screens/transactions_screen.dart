@@ -2,8 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:money_manage/models/transaction.dart';
 import 'package:money_manage/services/transaction_service.dart';
+import 'transaction_detail_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:expandable/expandable.dart';
+import 'package:intl/intl.dart';
 
 class TransactionsScreen extends StatefulWidget {
   static const String routeName = '/transactions';
@@ -21,8 +23,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   String _error = '';
   
   // Time filter options
-  late final List<String> _timeFilters;
-  late String _selectedFilter;
+  late final List<Map<String, dynamic>> _timeFilters;
+  late Map<String, dynamic> _selectedFilter;
+  final ScrollController _scrollController = ScrollController();
 
   // Helper method to format currency
   String _formatCurrency(double amount) {
@@ -39,28 +42,50 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   void initState() {
     super.initState();
     
-    // Initialize time filters based on current date
+    // Initialize time filters with past 12 months
     final now = DateTime.now();
-    final currentMonth = '${now.month.toString().padLeft(2, '0')}/${now.year}';
+    _timeFilters = List.generate(12, (index) {
+      final date = DateTime(now.year, now.month - index, 1);
+      final monthName = DateFormat('MMM yyyy').format(date);
+      final monthKey = '${date.year}-${date.month.toString().padLeft(2, '0')}';
+      return {
+        'label': monthName,
+        'year': date.year,
+        'month': date.month,
+        'key': monthKey,
+      };
+    }).reversed.toList();
     
-    // Calculate previous month
-    DateTime prevMonth = DateTime(now.year, now.month - 1, 1);
-    final previousMonth = '${prevMonth.month.toString().padLeft(2, '0')}/${prevMonth.year}';
-    
-    // Set the filters with dynamic months
-    _timeFilters = [
-      'Tháng này ($currentMonth)',
-      'Tháng trước ($previousMonth)',
-      '09/2025'  // Fixed date as per requirement
-    ];
-    _selectedFilter = _timeFilters[0];
+    // Set the current month as default
+    _selectedFilter = _timeFilters.last;
     
     _loadTransactions();
-    // Apply this month's filter by default
-    if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _applyFilter(_timeFilters[0]);
-      });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // Method to scroll to the selected month in the filter bar
+  void _scrollToSelectedMonth() {
+    if (_scrollController.hasClients) {
+      // Find the index of the current month in the filters
+      final index = _timeFilters.indexWhere((filter) => filter['key'] == _selectedFilter['key']);
+      if (index != -1) {
+        // Calculate the position to scroll to
+        final double itemWidth = 100.0; // Approximate width of each filter item
+        final double screenWidth = MediaQuery.of(context).size.width;
+        final double scrollPosition = (itemWidth * index) - (screenWidth / 2) + (itemWidth / 2);
+        
+        // Animate the scroll
+        _scrollController.animateTo(
+          scrollPosition.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
     }
   }
 
@@ -77,7 +102,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       if (mounted) {
         setState(() {
           _transactions = transactions;
+          // Apply the current month's filter after loading transactions
+          _applyFilter(_selectedFilter);
           _isLoading = false;
+        });
+        
+        // Wait for the next frame to ensure the UI is built
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _scrollToSelectedMonth();
         });
       }
     } catch (e) {
@@ -86,33 +118,23 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         setState(() {
           _error = e.toString().replaceAll('Exception: ', '');
           _isLoading = false;
+          // Clear filtered transactions on error
+          _filteredTransactions = [];
         });
       }
     }
   }
 
-  void _applyFilter(String filter) {
+  void _applyFilter(Map<String, dynamic> filter) {
     setState(() {
       _selectedFilter = filter;
-      final now = DateTime.now();
+      final year = filter['year'] as int;
+      final month = filter['month'] as int;
       
-      if (filter.startsWith('Tháng này')) {
-        _filteredTransactions = _transactions.where((transaction) {
-          final transactionDate = transaction.date;
-          return transactionDate.year == now.year && transactionDate.month == now.month;
-        }).toList();
-      } else if (filter.startsWith('Tháng trước')) {
-        final prevMonth = DateTime(now.year, now.month - 1, 1);
-        _filteredTransactions = _transactions.where((transaction) {
-          final transactionDate = transaction.date;
-          return transactionDate.year == prevMonth.year && transactionDate.month == prevMonth.month;
-        }).toList();
-      } else if (filter == '09/2025') {
-        _filteredTransactions = _transactions.where((transaction) {
-          final transactionDate = transaction.date;
-          return transactionDate.year == 2025 && transactionDate.month == 9;
-        }).toList();
-      }
+      _filteredTransactions = _transactions.where((transaction) {
+        final transactionDate = transaction.date;
+        return transactionDate.year == year && transactionDate.month == month;
+      }).toList();
       
       // Sort by date in descending order (newest first)
       _filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
@@ -123,53 +145,43 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Giao dịch'),
+        title: const Text('Transactions'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Row(
-                  children: List.generate(_timeFilters.length, (index) {
-                    final isSelected = _selectedFilter == _timeFilters[index];
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => _applyFilter(_timeFilters[index]),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.white : Colors.transparent,
-                            borderRadius: BorderRadius.circular(25),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 2,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Text(
-                            _timeFilters[index],
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: isSelected ? Theme.of(context).primaryColor : Colors.grey[700],
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: ListView.builder(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              itemCount: _timeFilters.length,
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              itemBuilder: (context, index) {
+                final filter = _timeFilters[index];
+                final isSelected = _selectedFilter['key'] == filter['key'];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                  child: GestureDetector(
+                    onTap: () => _applyFilter(filter),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Theme.of(context).primaryColor : Colors.grey[200],
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Center(
+                        child: Text(
+                          filter['label'],
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.grey[800],
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
                       ),
-                    );
-                  }),
-                ),
-              ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -188,11 +200,11 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Lỗi: $_error'),
+            Text('Error: $_error'),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadTransactions,
-              child: const Text('Thử lại'),
+              child: const Text('Try Again'),
             ),
           ],
         ),
@@ -203,7 +215,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       return Column(
         children: [
           const SizedBox(height: 20),
-          Center(child: Text('Không có giao dịch nào trong $_selectedFilter.')),
+          Center(child: Text('No transactions found in ${_selectedFilter['label']}')),
         ],
       );
     }
@@ -239,7 +251,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ),
                     ),
                     title: Text(
-                      transaction.categoryName ?? 'Giao dịch',
+                      transaction.categoryName ?? 'Transaction',
                       style: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontSize: 16,
@@ -273,7 +285,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ],
                     ),
                     onTap: () {
-                      ExpandableController.of(context)?.toggle();
+                      // Navigate to transaction detail screen with the selected transaction
+                      Navigator.push(
+                        context,
+                        TransactionDetailScreen.generateRoute(
+                          RouteSettings(
+                            name: TransactionDetailScreen.routeName,
+                            arguments: transaction,
+                          ),
+                        ),
+                      );
                     },
                   ),
                   
@@ -301,18 +322,18 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           const SizedBox(height: 12),
           
           if (transaction.note?.isNotEmpty ?? false) ...[
-            _buildDetailRow('Ghi chú', transaction.note!),
+            _buildDetailRow('Note', transaction.note!),
             const SizedBox(height: 8),
           ],
           
           if (transaction.walletName?.isNotEmpty ?? false)
-            _buildDetailRow('Ví', transaction.walletName!),
+            _buildDetailRow('Wallet', transaction.walletName!),
           
           if (transaction.image != null) ...[
             const SizedBox(height: 8),
             _buildDetailRow(
-              'Hóa đơn', 
-              'Có đính kèm',
+              'Receipt', 
+              'Attached',
               icon: Icons.receipt,
               iconColor: Colors.blue,
             ),
