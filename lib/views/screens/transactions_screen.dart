@@ -5,7 +5,7 @@ import 'package:money_manage/services/transaction_service.dart';
 import 'transaction_detail_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:expandable/expandable.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 
 class TransactionsScreen extends StatefulWidget {
   static const String routeName = '/transactions';
@@ -140,6 +140,55 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       // Sort by date in descending order (newest first)
       _filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
     });
+  }
+
+  // Add a method to handle transaction deletion
+  Future<void> _deleteTransaction(Transaction transaction) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: const Text('Are you sure you want to delete this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true) return;
+
+    try {
+      final transactionService = TransactionService();
+      final success = await transactionService.deleteTransaction(transaction.idFE);
+      
+      if (success && mounted) {
+        // Remove the transaction from the list
+        setState(() {
+          _transactions.removeWhere((t) => t.idFE == transaction.idFE);
+          _applyFilter(_selectedFilter); // Refresh the filtered list
+        });
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Transaction deleted successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete transaction: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -332,16 +381,22 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           ),
                         ],
                       ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          TransactionDetailScreen.generateRoute(
-                            RouteSettings(
-                              name: TransactionDetailScreen.routeName,
-                              arguments: transaction,
-                            ),
+                      onTap: () async {
+                        // Wait for the transaction detail screen to return a result
+                        final shouldRefresh = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute<bool>(
+                            builder: (context) => TransactionDetailScreen(transaction: transaction),
                           ),
                         );
+                        
+                        // If the transaction was deleted in the detail screen, refresh the list
+                        if (shouldRefresh == true) {
+                          _loadTransactions();
+                        }
+                      },
+                      onLongPress: () {
+                        // Show delete confirmation on long press
+                        _deleteTransaction(transaction);
                       },
                     ),
                   );
