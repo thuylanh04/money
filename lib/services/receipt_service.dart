@@ -12,18 +12,31 @@ class ReceiptData {
   final double amount;
   final String? categoryId;
   final String? note;
+  final String? totalAmount;
+  final String? invoiceType;
+  final List<String>? imageUrls;
 
   ReceiptData({
     required this.amount,
     this.categoryId,
     this.note,
+    this.totalAmount,
+    this.invoiceType,
+    this.imageUrls,
   });
 
   factory ReceiptData.fromJson(Map<String, dynamic> json) {
     return ReceiptData(
-      amount: (json['amount'] as num).toDouble(),
+      amount: json['total_amount_parsed'] != null 
+          ? (json['total_amount_parsed'] as num).toDouble() 
+          : (json['amount'] as num?)?.toDouble() ?? 0.0,
       categoryId: json['categoryIdFE'],
       note: json['note'],
+      totalAmount: json['total_amount'],
+      invoiceType: json['invoice_type'],
+      imageUrls: json['image_urls'] != null 
+          ? List<String>.from(json['image_urls'])
+          : null,
     );
   }
 }
@@ -48,23 +61,24 @@ class MockReceiptService implements ReceiptService {
 }
 
 class ApiReceiptService implements ReceiptService {
-  static const String _baseUrl = 'https://e34b199081e2.ngrok-free.app/api/v1';
+  static const String _baseUrl = 'https://3c8ea52a8aa1.ngrok-free.app/api/v1';
   
   @override
   Future<ReceiptData> processReceipt(XFile file) async {
     try {
-      final uri = Uri.parse('$_baseUrl/receipts/process');
+      final uri = Uri.parse('$_baseUrl/transactions/test-upload-multiple');
       final request = http.MultipartRequest('POST', uri);
       
       // Add the image file
       request.files.add(await http.MultipartFile.fromPath(
-        'receipt',
+        'images',
         file.path,
         contentType: MediaType('image', 'jpeg'),
       ));
 
-      // Add headers if needed
+      // Add headers
       request.headers['Content-Type'] = 'multipart/form-data';
+      request.headers['ngrok-skip-browser-warning'] = 'true';
       
       final response = await request.send();
       final responseData = await response.stream.bytesToString();
@@ -72,7 +86,10 @@ class ApiReceiptService implements ReceiptService {
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(responseData);
         if (jsonData['code'] == 1000) {
-          return ReceiptData.fromJson(jsonData['result']);
+          return ReceiptData.fromJson({
+            ...jsonData['result'],
+            'amount': jsonData['result']['total_amount_parsed']
+          });
         } else {
           throw Exception('Failed to process receipt: ${jsonData['message']}');
         }

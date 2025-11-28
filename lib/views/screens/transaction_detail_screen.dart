@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
+import 'package:money_manage/config/env_config.dart';
 
 import '../../models/category_fe.dart';
 import '../../models/category_group.dart';
@@ -11,6 +14,7 @@ import '../../services/group_service.dart';
 import '../../services/receipt_service.dart';
 import '../../services/transaction_service.dart';
 import '../../services/wallet_service.dart';
+import '../../services/category_service.dart';
 import '../../theme/app_theme.dart';
 import 'select_category_screen.dart';
 
@@ -44,6 +48,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   Wallet? _selectedWallet;
   bool _isLoadingWallets = false;
   String? _walletError;
+  
+  // Categories and AI state
+  List<CategoryFE> _categories = [];
+  bool _isAiRunning = false;
+  bool _aiCompleted = false;
 
   String _expenseLabel = 'Expense';
   String _incomeLabel = 'Income';
@@ -52,8 +61,6 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   String? _incomeGroupIdFE;
   String? _debtGroupIdFE;
   CategoryFE? _selectedCategory;
-  bool _aiCompleted = false;
-  bool _isAiRunning = false;
 
   @override
   void initState() {
@@ -62,6 +69,26 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     _tabController.addListener(_handleTabChanged);
     _loadGroups();
     _fetchWallets();
+    _loadCategories();
+  }
+  
+  Future<void> _loadCategories() async {
+    try {
+      final categoryService = CategoryService(ApiClient());
+      final categories = await categoryService.fetchCategories();
+      if (mounted) {
+        setState(() {
+          _categories = categories;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading categories: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể tải danh mục')),
+        );
+      }
+    }
   }
 
   @override
@@ -70,6 +97,47 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     _amountController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+  
+  
+  Future<void> _runAiClassification() async {
+    if (_receiptImages.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng đính kèm ít nhất một ảnh hóa đơn.')),
+        );
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isAiRunning = true;
+      });
+    }
+
+    try {
+      await _runReceiptAnalysis(_receiptImages.first);
+
+      if (mounted) {
+        setState(() {
+          _aiCompleted = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('AI classification error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể phân tích hóa đơn. Vui lòng thử lại.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAiRunning = false;
+        });
+      }
+    }
   }
 
   @override
@@ -659,72 +727,202 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   }
 
   Future<void> _runReceiptAnalysis(XFile file) async {
+    if (!mounted) return;
+    
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
     try {
-      final receiptData = await _receiptRepository.processReceipt(file);
+      // Call the new API endpoint for AI classification
+      final url = Uri.parse('${EnvConfig.apiBaseUrl}/api/v1/transactions/test-upload-multiple');
+      final request = http.MultipartRequest('POST', url);
+      
+      // Add the image file
+      final fileStream = http.ByteStream(file.openRead());
+      final length = await file.length();
+      final multipartFile = http.MultipartFile(
+        'files',
+        fileStream,
+        length,
+        filename: file.path.split('/').last,
+      );
+      request.files.add(multipartFile);
+
+      // Send the request
+      debugPrint('Sending request to: ${url.toString()}');
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      debugPrint('Response status: ${response.statusCode}');
+      debugPrint('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        if (responseData['code'] == 1000) {
+          final result = responseData['result'];
+          final totalAmount = result['total_amount'] as String?;
+          final invoiceType = result['invoice_type'] as String?;
+          
+          if (!mounted) return;
+          Navigator.of(context).pop(); // Dismiss loading indicator
+
+          if (mounted) {
+            setState(() {
+              // Update amount if available
+              if (totalAmount != null && totalAmount.isNotEmpty) {
+                try {
+                  // First, remove all non-numeric characters and spaces
+                  String cleanAmount = totalAmount.replaceAll(RegExp(r'[^0-9,.]'), '');
+                  
+                  // Check if the last comma or dot is a decimal separator
+                  int lastComma = cleanAmount.lastIndexOf(',');
+                  int lastDot = cleanAmount.lastIndexOf('.');
+                  
+                  if (lastComma > lastDot) {
+                    // Comma is the decimal separator, dot is thousand separator
+                    cleanAmount = cleanAmount
+                        .replaceAll('.', '')   // Remove thousand separators
+                        .replaceFirst(',', '.'); // Convert decimal comma to dot
+                  } else if (lastDot > lastComma) {
+                    // Dot is the decimal separator, comma is thousand separator
+                    cleanAmount = cleanAmount.replaceAll(',', ''); // Remove thousand separators
+                  } else if (lastComma == -1 && lastDot == -1) {
+                    // No decimal point, just a whole number
+                    cleanAmount = cleanAmount;
+                  }
+                  
+                  // Parse to double and format without decimal places if it's a whole number
+                  double amount = double.parse(cleanAmount);
+                  if (amount == amount.truncate()) {
+                    _amountController.text = amount.truncate().toString();
+                  } else {
+                    _amountController.text = amount.toString();
+                  }
+                  
+                  debugPrint('Parsed amount: ${_amountController.text} from original: $totalAmount');
+                } catch (e) {
+                  debugPrint('Error parsing amount "$totalAmount": $e');
+                  // Fallback: remove all non-numeric characters except the last dot
+                  String clean = totalAmount.replaceAll(RegExp(r'[^0-9]'), '');
+                  if (clean.isNotEmpty) {
+                    _amountController.text = clean;
+                  } else {
+                    _amountController.text = '0';
+                  }
+                }
+              }
+
+              // Find and set the matching category
+              if (invoiceType != null) {
+                // Find category that matches invoice_type
+                try {
+                  final matchedCategory = _categories.firstWhere(
+                    (cat) => cat.categoryName.toLowerCase() == invoiceType.toLowerCase(),
+                  );
+                  _selectedCategory = matchedCategory;
+                  _updateTabForCategory(_selectedCategory!);
+                  
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Đã tự động chọn danh mục: ${matchedCategory.categoryName}')),
+                  );
+                } catch (e) {
+                  // If no exact match, try to find 'Others' category
+                  try {
+                    _selectedCategory = _categories.firstWhere(
+                      (cat) => cat.categoryName == 'Others',
+                    );
+                    _updateTabForCategory(_selectedCategory!);
+                    
+                    // Show invoice type in snackbar
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Loại hóa đơn: $invoiceType')),
+                    );
+                  } catch (e) {
+                    // If no 'Others' category, just select the first one
+                    if (_categories.isNotEmpty) {
+                      _selectedCategory = _categories.first;
+                      _updateTabForCategory(_selectedCategory!);
+                    }
+                  }
+                }
+              }
+              
+              // Clear any previous errors
+              _receiptError = null;
+            });
+          }
+          return;
+        }
+      }
+
+      // If we get here, there was an error
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Dismiss loading indicator
+      
+      String errorMessage = 'Không thể xử lý hóa đơn. Vui lòng thử lại.';
+      try {
+        final errorData = json.decode(response.body);
+        if (errorData['message'] != null) {
+          errorMessage = errorData['message'];
+        }
+      } catch (e) {
+        debugPrint('Error parsing error response: $e');
+      }
+      
+      debugPrint('API Error (${response.statusCode}): $errorMessage');
+      
       if (mounted) {
         setState(() {
-          _amountController.text = receiptData.amount.toString();
-          _noteController.text = receiptData.note ?? '';
-          // TODO: Update category if needed when category selection is implemented
+          _receiptError = errorMessage;
         });
-      }
-    } catch (e) {
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi xử lý hóa đơn: $e')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
-    }
-  }
-
-  Future<void> _runAiClassification() async {
-    if (_receiptImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please attach at least one receipt image for AI classification.')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isAiRunning = true;
-    });
-
-    try {
-      // For now, run analysis on the first image. In a real implementation,
-      // this would parse AI results and fill amount/category.
-      await _runReceiptAnalysis(_receiptImages.first);
-
-      setState(() {
-        _aiCompleted = true;
-      });
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('AI classification failed. Please try again.')),
-      );
-    } finally {
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(); // Dismiss loading indicator
       if (mounted) {
         setState(() {
-          _isAiRunning = false;
+          _receiptError = 'Có lỗi xảy ra khi xử lý ảnh';
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Có lỗi xảy ra khi xử lý ảnh')),
+        );
       }
+      debugPrint('Error processing receipt: $e');
     }
   }
-
+  
   void _showFullImage(int index) {
     if (_receiptImages.isEmpty || index < 0 || index >= _receiptImages.length) {
       return;
     }
+    
+    if (!mounted) return;
+    
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.9),
-      builder: (context) {
+      builder: (BuildContext context) {
         return GestureDetector(
           onTap: () => Navigator.of(context).pop(),
-          child: Center(
+          child: Dialog.fullscreen(
             child: InteractiveViewer(
-              child: Image.file(
-                File(_receiptImages[index].path),
-                fit: BoxFit.contain,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: Image.file(
+                  File(_receiptImages[index].path),
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
           ),

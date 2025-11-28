@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TransactionService {
-  static const String _baseUrl = 'https://9931cba145c7.ngrok-free.app/api/v1';
+  static const String _baseUrl = 'https://3c8ea52a8aa1.ngrok-free.app/api/v1';
 
   static Future<Map<String, dynamic>> createTransaction({
     required double amount,
