@@ -267,10 +267,45 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                     },
                   ),
                   const SizedBox(height: 12),
-                  _RowItem(
-                    leading: const Icon(Icons.notes_outlined),
-                    title: _noteController.text.isNotEmpty ? _noteController.text : 'Write note',
-                    subtitle: _noteController.text.isEmpty ? 'Optional' : null,
+                  GestureDetector(
+                    onTap: () async {
+                      final result = await showDialog<String>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Add Note'),
+                          content: TextField(
+                            controller: _noteController,
+                            autofocus: true,
+                            decoration: const InputDecoration(
+                              hintText: 'Enter your note here',
+                              border: OutlineInputBorder(),
+                            ),
+                            maxLines: 3,
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, _noteController.text),
+                              child: const Text('Save'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (result != null) {
+                        setState(() {
+                          _noteController.text = result;
+                        });
+                      }
+                    },
+                    child: _RowItem(
+                      leading: const Icon(Icons.notes_outlined),
+                      title: _noteController.text.isNotEmpty ? _noteController.text : 'Write note',
+                      subtitle: _noteController.text.isEmpty ? 'Optional' : null,
+                      showChevron: true,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _buildReceiptRow(context),
@@ -500,11 +535,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   }
 
   Future<void> _handleSave() async {
-    if (!_canSave) return;
-
     // Validate required fields
+    if (_amountController.text.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng nhập số tiền')),
+        );
+      }
+      return;
+    }
+
     if (_selectedCategory == null) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vui lòng chọn danh mục')),
         );
@@ -513,7 +555,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
 
     if (_selectedWallet == null) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vui lòng chọn ví')),
         );
@@ -521,57 +563,56 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       return;
     }
 
-    // Get the amount from the controller and remove any commas
-    final amountStr = _amountController.text.replaceAll(',', '');
-    final amount = double.tryParse(amountStr) ?? 0.0;
-
-    if (amount <= 0) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Số tiền không hợp lệ')),
-        );
-      }
-      return;
-    }
-
-    // Format the date as YYYY-MM-DD
-    final formattedDate = '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
-
-    // Get the first receipt image if available
-    final imagePath = _receiptImages.isNotEmpty ? _receiptImages.first.path : null;
-
-    // Show loading indicator
-    if (!context.mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    final amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0.0;
+    final isIncome = _tabController.index == 1; // Index 1 is Income tab
+    final finalAmount = isIncome ? amount.abs() : -amount.abs();
 
     try {
-      final result = await TransactionService.createTransaction(
-        amount: amount,
-        date: _selectedDate.toIso8601String(),
-        note: _noteController.text.trim(),
-        image: _receiptImages.isNotEmpty ? _receiptImages.first.path : null,
-        categoryIdFE: _selectedCategory?.idFE ?? '',
-        walletIdFE: _selectedWallet?.idFE ?? '',
-      );
+      Transaction? result;
       
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
-        Navigator.of(context).pop(true); // Close the screen and return success
+      if (widget.transaction != null) {
+        // Update existing transaction
+        final response = await TransactionService.updateTransaction(
+          transactionId: widget.transaction!.idFE,
+          amount: finalAmount,
+          categoryIdFE: _selectedCategory!.idFE,
+          note: _noteController.text,
+          date: _selectedDate,
+          walletIdFE: _selectedWallet!.idFE,
+        );
+        result = response;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Cập nhật giao dịch thành công')),
+          );
+        }
+      } else {
+        // Create new transaction
+final response = await TransactionService.createTransaction(
+  amount: finalAmount,
+  date: _selectedDate.toIso8601String(),
+  categoryIdFE: _selectedCategory!.idFE,
+  walletIdFE: _selectedWallet!.idFE,
+  note: _noteController.text.isNotEmpty ? _noteController.text : null,
+);
+result = Transaction.fromJson(response);  // Convert the response to a Transaction object
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Thêm giao dịch thành công')),
+          );
+        }
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop(result); // Return the created/updated transaction
       }
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context).pop(); // Close loading dialog
+      debugPrint('Error saving transaction: $e');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi tạo giao dịch: $e')),
+          const SnackBar(content: Text('Đã xảy ra lỗi. Vui lòng thử lại sau.')),
         );
       }
-      print('Error creating transaction: $e');
     }
   }
 

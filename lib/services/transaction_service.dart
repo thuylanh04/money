@@ -176,5 +176,52 @@ class TransactionService {
     }
   }
 
-  // ... rest of the TransactionService class
+  static Future<Transaction> updateTransaction({
+    required String transactionId,
+    required double amount,
+    required String categoryIdFE,
+    String? note,
+    required DateTime date,
+    required String walletIdFE,
+  }) async {
+    try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        throw Exception('No authentication token found');
+      }
+
+      final response = await http.put(
+        Uri.parse('$_baseUrl/transactions/$transactionId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+          'ngrok-skip-browser-warning': 'true',
+        },
+        body: json.encode({
+          'amount': amount,
+          'categoryIdFE': categoryIdFE,
+          if (note != null && note.isNotEmpty) 'note': note,
+          'date': date.toIso8601String(),
+          'walletIdFE': walletIdFE,
+        }),
+      );
+
+      print('Update Transaction Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = json.decode(response.body);
+        if (responseData['code'] == 1000) {
+          final transactionData = responseData['result'] as Map<String, dynamic>;
+          return Transaction.fromJson(transactionData);
+        } else {
+          throw Exception(responseData['message'] ?? 'Failed to update transaction');
+        }
+      } else {
+        throw Exception('Failed to update transaction: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in updateTransaction: $e');
+      rethrow;
+    }
+  }
 }
