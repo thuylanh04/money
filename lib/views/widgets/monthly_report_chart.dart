@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import 'package:money_manage/views/screens/monthly_report_screen.dart';
+import 'package:money_manage/views/screens/analysis_screen.dart';
 
 class MonthlyReportChart extends StatelessWidget {
   final double income;
@@ -49,7 +49,7 @@ class MonthlyReportChart extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => const MonthlyReportScreen(),
+                      builder: (context) => const AnalysisScreen(),
                     ),
                   );
                 },
