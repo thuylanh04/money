@@ -3,6 +3,9 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:money_manage/models/transaction.dart';
 import 'package:money_manage/services/transaction_service.dart';
+import 'package:money_manage/services/wallet_service.dart';
+import 'package:money_manage/services/storage_service.dart';
+import 'package:money_manage/services/api_client.dart';
 
 import '../../theme/app_theme.dart';
 import '../../services/chart_service.dart';
@@ -90,11 +93,42 @@ class _HomeContentState extends State<_HomeContent> {
   double _totalExpense = 0;
   double _totalBalance = 0;
   bool _isLoading = true;
+  final WalletService _walletService = WalletService(ApiClient());
+  Map<String, dynamic>? _walletData;
 
   @override
   void initState() {
     super.initState();
+    _loadWalletData();
     _loadTransactionData();
+  }
+
+  Future<void> _loadWalletData() async {
+    try {
+      final wallets = await _walletService.getUserWallets();
+      if (wallets.isNotEmpty) {
+        // Get the first wallet's ID FE
+        final walletIdFE = wallets.first.idFE;
+        if (walletIdFE != null) {
+          final response = await ApiClient().get('/api/v1/transactions/amount/$walletIdFE');
+          if (response != null && response['code'] == 1000 && response['result'] is List && response['result'].isNotEmpty) {
+            if (mounted) {
+              setState(() {
+                _walletData = response['result'][0];
+                // Update the balance if available in the response
+                if (_walletData?['balance'] != null) {
+                  _totalBalance = _walletData!['balance'].toDouble();
+                }
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error loading wallet data: $e');
+      // Fall back to the existing balance calculation
+      _loadTransactionData();
+    }
   }
 
   Future<void> _loadTransactionData() async {
@@ -122,7 +156,10 @@ class _HomeContentState extends State<_HomeContent> {
         setState(() {
           _totalIncome = income;
           _totalExpense = expense;
-          _totalBalance = income - expense;
+          // Only update balance if we didn't get it from the wallet API
+          if (_walletData == null || _walletData!['balance'] == null) {
+            _totalBalance = income - expense;
+          }
           _isLoading = false;
         });
       }
