@@ -6,6 +6,8 @@ import 'package:money_manage/services/transaction_service.dart';
 
 import '../../theme/app_theme.dart';
 import '../../services/chart_service.dart';
+import '../widgets/income_expense_chart.dart';
+import '../widgets/monthly_report_chart.dart';
 import 'account_screen.dart';
 import 'analysis_screen.dart';
 import 'transaction_detail_screen.dart';
@@ -76,8 +78,63 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 /// Home content dựa trên screenshot: balance, wallet card, report card, banner, top spending, recent transactions.
-class _HomeContent extends StatelessWidget {
+class _HomeContent extends StatefulWidget {
   const _HomeContent({super.key});
+
+  @override
+  State<_HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<_HomeContent> {
+  double _totalIncome = 0;
+  double _totalExpense = 0;
+  double _totalBalance = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactionData();
+  }
+
+  Future<void> _loadTransactionData() async {
+    try {
+      final transactions = await TransactionService.getUserTransactions();
+      
+      double income = 0;
+      double expense = 0;
+      
+      final now = DateTime.now();
+      final currentMonth = DateTime(now.year, now.month);
+      
+      for (var transaction in transactions) {
+        if (transaction.date.isAfter(currentMonth)) {
+          if (transaction.groupType == 'income') {
+            income += transaction.amount;
+          } else if (transaction.groupType == 'expense') {
+            expense += transaction.amount;
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _totalIncome = income;
+          _totalExpense = expense;
+          _totalBalance = income - expense;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      // Handle error
+      print('Error loading transaction data: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,9 +143,16 @@ class _HomeContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _HomeHeader(),
+          _HomeHeader(balance: _totalBalance),
           const SizedBox(height: 24),
           const _WalletCard(),
+          const SizedBox(height: 24),
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : MonthlyReportChart(
+                  income: _totalIncome,
+                  expense: _totalExpense,
+                ),
           const SizedBox(height: 24),
           const _ReportSection(),
           const SizedBox(height: 24),
@@ -104,6 +168,10 @@ class _HomeContent extends StatelessWidget {
 }
 
 class _HomeHeader extends StatefulWidget {
+  final double balance;
+  
+  const _HomeHeader({required this.balance});
+  
   @override
   _HomeHeaderState createState() => _HomeHeaderState();
 }
@@ -122,7 +190,9 @@ class _HomeHeaderState extends State<_HomeHeader> {
             Row(
               children: [
                 Text(
-                  _showBalance ? '-\$ 500,000' : '••••••',
+                  _showBalance 
+                    ? '${widget.balance >= 0 ? '' : '-'}₫${NumberFormat('#,###').format(widget.balance.abs())}'
+                    : '••••••',
                   style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
@@ -145,10 +215,10 @@ class _HomeHeaderState extends State<_HomeHeader> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Total balance',
+              'Tổng số dư',
               style: TextStyle(
                 fontSize: 12,
-                color: AppTheme.textSecondary,
+                color: Colors.grey,
               ),
             ),
           ],
