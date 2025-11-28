@@ -78,8 +78,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   CategoryFE? _selectedCategory;
 
   // Helper method to determine if a transaction is income
+  // Now we'll check the group type instead of amount sign
   bool _isIncome(Transaction transaction) {
-    return transaction.amount >= 0;
+    return transaction.groupType?.toLowerCase() == 'income';
   }
 
   @override
@@ -92,7 +93,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     // Pre-fill form if editing existing transaction
     if (widget.transaction != null) {
       final transaction = widget.transaction!;
-      _amountController.text = transaction.amount.abs().toString();
+      _amountController.text = transaction.amount.toString(); // Remove abs() since amount is always positive
       _noteController.text = transaction.note ?? '';
       _selectedDate = transaction.date;
       
@@ -205,6 +206,73 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+  AppBar _buildAppBar() {
+    return AppBar(
+      title: Text(widget.transaction == null ? 'Add Transaction' : 'Transaction Details'),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      actions: widget.transaction != null
+          ? [
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: _showDeleteConfirmation,
+              ),
+            ]
+          : null,
+    );
+  }
+  
+  Future<void> _showDeleteConfirmation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: const Text('Are you sure you want to delete this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteTransaction();
+    }
+  }
+  
+  Future<void> _deleteTransaction() async {
+    if (widget.transaction == null) return;
+    
+    try {
+      final transactionService = TransactionService();
+      final success = await transactionService.deleteTransaction(widget.transaction!.idFE);
+      
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transaction deleted successfully')),
+        );
+        if (mounted) {
+          Navigator.of(context).pop(true); // Return true to indicate deletion
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete transaction: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -212,25 +280,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     final horizontalPadding = isTablet ? media.size.width * 0.08 : 16.0;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(widget.transaction != null ? 'Edit Transaction' : 'Add Transaction'),
-        centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.primaryGreen,
-          labelColor: AppTheme.primaryGreen,
-          unselectedLabelColor: AppTheme.textSecondary,
-          tabs: [
-            Tab(text: _expenseLabel),
-            Tab(text: _incomeLabel),
-            Tab(text: _debtLabel),
-          ],
-        ),
-      ),
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           Expanded(
@@ -563,17 +613,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       return;
     }
 
+    // Parse and ensure amount is positive
     final amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0.0;
-    // For both income and expense, we store positive amounts and use groupType to distinguish them
-    // The sign is only used for display purposes, not for calculation
-    final finalAmount = amount.abs();
+    final finalAmount = amount.abs(); // Ensure amount is always positive
 
     try {
       Transaction? result;
       
       if (widget.transaction != null) {
         // Update existing transaction
-        final response = await TransactionService.updateTransaction(
+        final transactionService = TransactionService();
+        final response = await transactionService.updateTransaction(
           transactionId: widget.transaction!.idFE,
           amount: finalAmount,
           categoryIdFE: _selectedCategory!.idFE,
@@ -589,7 +639,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         }
       } else {
         // Create new transaction
-final response = await TransactionService.createTransaction(
+final transactionService = TransactionService();
+final response = await transactionService.createTransaction(
   amount: finalAmount,
   date: _selectedDate.toIso8601String(),
   categoryIdFE: _selectedCategory!.idFE,

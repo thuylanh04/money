@@ -23,7 +23,8 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
 
   Future<void> _loadTransactions() {
     setState(() {
-      _transactionsFuture = TransactionService.getUserTransactions();
+      final transactionService = TransactionService();
+      _transactionsFuture = transactionService.getUserTransactions();
     });
     return _transactionsFuture;
   }

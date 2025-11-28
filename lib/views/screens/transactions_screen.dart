@@ -98,7 +98,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
 
     try {
-      final transactions = await TransactionService.getUserTransactions();
+      final transactionService = TransactionService();
+      final transactions = await transactionService.getUserTransactions();
       if (mounted) {
         setState(() {
           _transactions = transactions;
@@ -190,6 +191,36 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
+  // Helper method to group transactions by date
+  Map<String, List<Transaction>> _groupTransactionsByDate() {
+    final Map<String, List<Transaction>> groupedTransactions = {};
+    
+    for (final transaction in _filteredTransactions) {
+      final dateKey = DateFormat('dd/MM/yyyy').format(transaction.date);
+      
+      if (!groupedTransactions.containsKey(dateKey)) {
+        groupedTransactions[dateKey] = [];
+      }
+      
+      groupedTransactions[dateKey]!.add(transaction);
+    }
+    
+    // Sort the map by date in descending order (newest first)
+    final sortedKeys = groupedTransactions.keys.toList()
+      ..sort((a, b) {
+        final dateA = DateFormat('dd/MM/yyyy').parse(a);
+        final dateB = DateFormat('dd/MM/yyyy').parse(b);
+        return dateB.compareTo(dateA);
+      });
+    
+    final sortedMap = <String, List<Transaction>>{};
+    for (var key in sortedKeys) {
+      sortedMap[key] = groupedTransactions[key]!;
+    }
+    
+    return sortedMap;
+  }
+
   Widget _buildBody() {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -220,92 +251,106 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       );
     }
 
+    final groupedTransactions = _groupTransactionsByDate();
+    
     return RefreshIndicator(
       onRefresh: _loadTransactions,
       child: ListView.builder(
         padding: const EdgeInsets.all(8),
-        itemCount: _filteredTransactions.length,
+        itemCount: groupedTransactions.length,
         itemBuilder: (context, index) {
-          final transaction = _filteredTransactions[index];
-          final formattedDate = DateFormat('dd/MM/yyyy').format(transaction.date);
+          final dateKey = groupedTransactions.keys.elementAt(index);
+          final transactions = groupedTransactions[dateKey]!;
           
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ExpandableNotifier(
-              child: Column(
-                children: <Widget>[
-                  // Header (always visible)
-                  ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: _isIncome(transaction)
-                          ? Colors.green.withOpacity(0.1) 
-                          : Colors.red.withOpacity(0.1),
-                      child: Icon(
-                        _isIncome(transaction)
-                            ? Icons.arrow_downward 
-                            : Icons.arrow_upward,
-                        color: _isIncome(transaction)
-                            ? Colors.green 
-                            : Colors.red,
-                        size: 20,
-                      ),
-                    ),
-                    title: Text(
-                      transaction.categoryName ?? 'Transaction',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                    ),
-                    subtitle: Text(
-                      formattedDate,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${_isIncome(transaction) ? '+' : '-'} ${_formatCurrency(transaction.amount.abs())}',
-                          style: TextStyle(
-                            color: _isIncome(transaction) 
-                                ? Colors.green 
-                                : Colors.red,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const Text(
-                          'USD',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      // Navigate to transaction detail screen with the selected transaction
-                      Navigator.push(
-                        context,
-                        TransactionDetailScreen.generateRoute(
-                          RouteSettings(
-                            name: TransactionDetailScreen.routeName,
-                            arguments: transaction,
-                          ),
-                        ),
-                      );
-                    },
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Date header
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                child: Text(
+                  dateKey,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.grey[600],
                   ),
-                  
-                  // Expandable section
-                  Expandable(
-                    collapsed: const SizedBox.shrink(),
-                    expanded: _buildTransactionDetails(transaction, formattedDate),
-                  ),
-                ],
+                ),
               ),
-            ),
+              
+              // List of transactions for this date
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: transactions.length,
+                itemBuilder: (ctx, idx) {
+                  final transaction = transactions[idx];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8, left: 8, right: 8),
+                    child: ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: _isIncome(transaction)
+                            ? Colors.green.withOpacity(0.1) 
+                            : Colors.red.withOpacity(0.1),
+                        child: Icon(
+                          _isIncome(transaction)
+                              ? Icons.arrow_downward 
+                              : Icons.arrow_upward,
+                          color: _isIncome(transaction)
+                              ? Colors.green 
+                              : Colors.red,
+                          size: 20,
+                        ),
+                      ),
+                      title: Text(
+                        transaction.categoryName ?? 'Transaction',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 15,
+                        ),
+                      ),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${_isIncome(transaction) ? '+' : '-'}${_formatCurrency(transaction.amount.abs())}',
+                            style: TextStyle(
+                              color: _isIncome(transaction) 
+                                  ? Colors.green 
+                                  : Colors.red,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const Text(
+                            'USD',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          TransactionDetailScreen.generateRoute(
+                            RouteSettings(
+                              name: TransactionDetailScreen.routeName,
+                              arguments: transaction,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+              
+              // Add some space between date groups
+              const SizedBox(height: 8),
+            ],
           );
         },
       ),

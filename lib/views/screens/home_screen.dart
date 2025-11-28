@@ -99,7 +99,8 @@ class _HomeContentState extends State<_HomeContent> {
 
   Future<void> _loadTransactionData() async {
     try {
-      final transactions = await TransactionService.getUserTransactions();
+      final transactionService = TransactionService();
+      final transactions = await transactionService.getUserTransactions();
       
       double income = 0;
       double expense = 0;
@@ -521,7 +522,8 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
 
   Future<void> _loadTopSpending() async {
     try {
-      final transactions = await TransactionService.getUserTransactions();
+      final transactionService = TransactionService();
+      final transactions = await transactionService.getUserTransactions();
       
       // Group transactions by category and sum amounts (only expenses)
       final categoryMap = <String, double>{};
@@ -675,7 +677,8 @@ class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> 
 
   Future<void> _loadRecentTransactions() async {
     try {
-      final transactions = await TransactionService.getUserTransactions();
+      final transactionService = TransactionService();
+      final transactions = await transactionService.getUserTransactions();
       
       // Sort by date in descending order and take first 5
       transactions.sort((a, b) => b.date.compareTo(a.date));

@@ -1,53 +1,46 @@
 // lib/services/transaction_service.dart
 import 'package:money_manage/services/storage_service.dart';
 import 'package:money_manage/models/transaction.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:money_manage/services/api_client.dart';
+import 'package:intl/intl.dart';
 
 class TransactionService {
-  static const String _baseUrl = 'https://68d4390ecf42.ngrok-free.app/api/v1';
+  final ApiClient _client;
+  static final TransactionService _instance = TransactionService._internal(ApiClient());
+
+  factory TransactionService() => _instance;
+  
+  static TransactionService get instance => _instance;
+
+  TransactionService._internal(this._client);
 
   // Cache for categories
-  static Map<String, Map<String, dynamic>>? _categoriesCache;
+  Map<String, Map<String, dynamic>>? _categoriesCache;
 
   // Get all categories and cache them
-  static Future<Map<String, Map<String, dynamic>>> getCategories() async {
+  Future<Map<String, Map<String, dynamic>>> getCategories() async {
     if (_categoriesCache != null) {
       return _categoriesCache!;
     }
 
     try {
-      final token = await StorageService.getToken();
-      if (token == null) {
-        throw Exception('No authentication token found');
-      }
+      final response = await _client.get('/api/v1/categories');
+      
+      if (response is Map<String, dynamic> && response['code'] == 1000) {
+        final List<dynamic> categories = response['result'] ?? [];
+        _categoriesCache = {};
 
-      final response = await http.get(
-        Uri.parse('$_baseUrl/categories'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
-        if (responseData['code'] == 1000) {
-          final List<dynamic> categories = responseData['result'];
-          _categoriesCache = {};
-
-          for (var category in categories) {
-            _categoriesCache![category['idFE']] = {
-              'name': category['categoryname'],
-              'groupId': category['groupIdFE'],
-              'groupType': _getGroupType(category['groupIdFE'])
-            };
-          }
-
-          return _categoriesCache!;
+        for (var category in categories) {
+          _categoriesCache![category['idFE']] = {
+            'name': category['categoryname'],
+            'groupId': category['groupIdFE'],
+            'groupType': _getGroupType(category['groupIdFE'])
+          };
         }
+
+        return _categoriesCache!;
       }
+      
       throw Exception('Failed to load categories');
     } catch (e) {
       print('Error loading categories: $e');
@@ -56,7 +49,7 @@ class TransactionService {
   }
 
   // Helper to determine group type from groupIdFE
-  static String _getGroupType(String? groupIdFE) {
+  String _getGroupType(String? groupIdFE) {
     if (groupIdFE == null) return 'expense';
 
     if (groupIdFE.startsWith('Income')) {
@@ -69,7 +62,7 @@ class TransactionService {
     return 'expense'; // Default to expense
   }
 
-  static Future<Map<String, dynamic>> createTransaction({
+  Future<Map<String, dynamic>> createTransaction({
     required double amount,
     required String date,
     String? note,
@@ -78,39 +71,33 @@ class TransactionService {
     required String walletIdFE,
   }) async {
     try {
-      final token = await StorageService.getToken();
-      if (token == null) {
-        throw Exception('No authentication token found');
+      final userId = await StorageService.getUid();
+      if (userId == null) {
+        throw Exception('No user ID found');
       }
 
-      final response = await http.post(
-        Uri.parse('$_baseUrl/transactions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode({
+      final now = DateTime.now();
+      final formattedDate = DateFormat('EEE MMM dd HH:mm:ss zzz yyyy').format(now);
+      final idFE = '${userId}${formattedDate}';
+
+      final response = await _client.post(
+        '/api/v1/transactions',
+        body: {
+          'idFE': idFE,
           'amount': amount,
           'date': date,
           if (note != null) 'note': note,
           if (image != null) 'image': image,
           'categoryIdFE': categoryIdFE,
           'walletIdFE': walletIdFE,
-        }),
+          'userIdFE': userId,
+        },
       );
 
-      print('Create Transaction Response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
-        if (responseData['code'] == 1000) {
-          return responseData['result'] as Map<String, dynamic>;
-        } else {
-          throw Exception(responseData['message'] ?? 'Failed to create transaction');
-        }
+      if (response is Map<String, dynamic> && response['code'] == 1000) {
+        return response['result'] ?? {};
       } else {
-        throw Exception('Failed to create transaction: ${response.statusCode}');
+        throw Exception(response?['message']?.toString() ?? 'Failed to create transaction');
       }
     } catch (e) {
       print('Error in createTransaction: $e');
@@ -118,57 +105,43 @@ class TransactionService {
     }
   }
 
-  static Future<List<Transaction>> getUserTransactions() async {
+  Future<List<Transaction>> getUserTransactions() async {
     try {
-      final token = await StorageService.getToken();
-      if (token == null) {
-        throw Exception('No authentication token found');
+      final userId = await StorageService.getUid();
+      if (userId == null) {
+        throw Exception('No user ID found');
       }
 
       // Load categories first
       final categories = await getCategories();
       
-      final response = await http.get(
-        Uri.parse('$_baseUrl/transactions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-      );
-
-      print('Get Transactions Response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
-        if (responseData['code'] == 1000) {
-          final List<dynamic> transactionsData = responseData['result'];
-          return transactionsData.map<Transaction>((json) {
-            final transaction = Transaction.fromJson(json);
-            final categoryInfo = categories[transaction.categoryIdFE];
-            if (categoryInfo != null) {
-              // Create a new Transaction with the group information
-              return Transaction(
-                idFE: transaction.idFE,
-                amount: transaction.amount,
-                date: transaction.date,
-                note: transaction.note,
-                image: transaction.image,
-                categoryIdFE: transaction.categoryIdFE,
-                walletIdFE: transaction.walletIdFE,
-                categoryName: transaction.categoryName,
-                walletName: transaction.walletName,
-                groupIdFE: categoryInfo['groupId'],
-                groupType: categoryInfo['groupType'],
-              );
-            }
-            return transaction;
-          }).toList();
-        } else {
-          throw Exception(responseData['message'] ?? 'Failed to fetch transactions');
-        }
+      final response = await _client.get('/api/v1/transactions/user/$userId');
+      
+      if (response is Map<String, dynamic> && response['code'] == 1000) {
+        final List<dynamic> transactionsData = response['result'] ?? [];
+        return transactionsData.map<Transaction>((json) {
+          final transaction = Transaction.fromJson(json);
+          final categoryInfo = categories[transaction.categoryIdFE];
+          if (categoryInfo != null) {
+            // Create a new Transaction with the group information
+            return Transaction(
+              idFE: transaction.idFE,
+              amount: transaction.amount,
+              date: transaction.date,
+              note: transaction.note,
+              image: transaction.image,
+              categoryIdFE: transaction.categoryIdFE,
+              walletIdFE: transaction.walletIdFE,
+              categoryName: transaction.categoryName,
+              walletName: transaction.walletName,
+              groupIdFE: categoryInfo['groupId'],
+              groupType: categoryInfo['groupType'],
+            );
+          }
+          return transaction;
+        }).toList();
       } else {
-        throw Exception('Failed to fetch transactions: ${response.statusCode}');
+        throw Exception(response?['message']?.toString() ?? 'Failed to fetch transactions');
       }
     } catch (e) {
       print('Error in getUserTransactions: $e');
@@ -176,7 +149,7 @@ class TransactionService {
     }
   }
 
-  static Future<Transaction> updateTransaction({
+  Future<Transaction> updateTransaction({
     required String transactionId,
     required double amount,
     required String categoryIdFE,
@@ -185,42 +158,47 @@ class TransactionService {
     required String walletIdFE,
   }) async {
     try {
-      final token = await StorageService.getToken();
-      if (token == null) {
-        throw Exception('No authentication token found');
+      final userId = await StorageService.getUid();
+      if (userId == null) {
+        throw Exception('No user ID found');
       }
 
-      final response = await http.put(
-        Uri.parse('$_baseUrl/transactions/$transactionId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-          'ngrok-skip-browser-warning': 'true',
-        },
-        body: json.encode({
+      final response = await _client.put(
+        '/api/v1/transactions/$transactionId',
+        body: {
           'amount': amount,
           'categoryIdFE': categoryIdFE,
           if (note != null && note.isNotEmpty) 'note': note,
           'date': date.toIso8601String(),
           'walletIdFE': walletIdFE,
-        }),
+          'userIdFE': userId,
+        },
       );
 
-      print('Update Transaction Response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> responseData = json.decode(response.body);
-        if (responseData['code'] == 1000) {
-          final transactionData = responseData['result'] as Map<String, dynamic>;
-          return Transaction.fromJson(transactionData);
-        } else {
-          throw Exception(responseData['message'] ?? 'Failed to update transaction');
-        }
+      if (response is Map<String, dynamic> && response['code'] == 1000) {
+        return Transaction.fromJson(response['result'] ?? {});
       } else {
-        throw Exception('Failed to update transaction: ${response.statusCode}');
+        throw Exception(response?['message']?.toString() ?? 'Failed to update transaction');
       }
     } catch (e) {
       print('Error in updateTransaction: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteTransaction(String transactionId) async {
+    try {
+      final response = await _client.delete(
+        '/api/v1/transactions/$transactionId',
+      );
+
+      if (response is Map<String, dynamic> && response['code'] == 1000) {
+        return true;
+      } else {
+        throw Exception(response?['message']?.toString() ?? 'Failed to delete transaction');
+      }
+    } catch (e) {
+      print('Error in deleteTransaction: $e');
       rethrow;
     }
   }

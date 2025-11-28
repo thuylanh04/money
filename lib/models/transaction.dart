@@ -63,9 +63,12 @@ class Transaction {
       return dateIndex > 0 ? idFE.substring(0, dateIndex).trim() : idFE;
     }
 
+    // Ensure amount is always positive
+    final amount = ((json['amount'] as num?)?.toDouble() ?? 0.0).abs();
+
     return Transaction(
       idFE: json['idFE']?.toString() ?? '',
-      amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: amount,
       date: json['date'] != null 
           ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
           : DateTime.now(),
