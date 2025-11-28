@@ -16,7 +16,9 @@ class TransactionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isExpense = transaction.amount < 0;
+    // Use groupType to determine if it's an expense or income
+    // Default to expense if groupType is null
+    final isExpense = transaction.groupType != 'income';
     final amountColor = isExpense ? AppTheme.error : AppTheme.primaryGreen;
     final amountSign = isExpense ? '-' : '+';
     final formattedDate = DateFormat('MMM d, y').format(transaction.date);
@@ -54,7 +56,7 @@ class TransactionListItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            '$amountSign${transaction.displayAmount.toStringAsFixed(0).replaceAllMapped(
+            '${transaction.amount.toStringAsFixed(0).replaceAllMapped(
                   RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
                   (match) => '${match[1]},',
                 )} VND',

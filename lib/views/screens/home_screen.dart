@@ -110,9 +110,9 @@ class _HomeContentState extends State<_HomeContent> {
       for (var transaction in transactions) {
         if (transaction.date.isAfter(currentMonth)) {
           if (transaction.groupType == 'income') {
-            income += transaction.amount;
+            income += transaction.amount.abs(); // Ensure positive amount for income
           } else if (transaction.groupType == 'expense') {
-            expense += transaction.amount;
+            expense += transaction.amount.abs(); // Ensure positive amount for expense
           }
         }
       }
@@ -145,16 +145,12 @@ class _HomeContentState extends State<_HomeContent> {
         children: [
           _HomeHeader(balance: _totalBalance),
           const SizedBox(height: 24),
-          const _WalletCard(),
-          const SizedBox(height: 24),
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : MonthlyReportChart(
                   income: _totalIncome,
                   expense: _totalExpense,
                 ),
-          const SizedBox(height: 24),
-          const _ReportSection(),
           const SizedBox(height: 24),
           const _PromoBanner(),
           const SizedBox(height: 24),

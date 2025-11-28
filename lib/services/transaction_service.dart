@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class TransactionService {
-  static const String _baseUrl = 'https://a2793545963a.ngrok-free.app/api/v1';
+  static const String _baseUrl = 'https://68d4390ecf42.ngrok-free.app/api/v1';
 
   // Cache for categories
   static Map<String, Map<String, dynamic>>? _categoriesCache;

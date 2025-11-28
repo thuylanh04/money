@@ -75,7 +75,9 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isExpense = widget.transaction.amount < 0;
+    // Use groupType to determine if it's an expense or income
+    // Default to expense if groupType is null
+    final isExpense = widget.transaction.groupType != 'income';
     final amountColor = isExpense ? AppTheme.errorRed : AppTheme.primaryGreen;
     
     return Scaffold(

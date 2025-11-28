@@ -564,8 +564,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
 
     final amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0.0;
-    final isIncome = _tabController.index == 1; // Index 1 is Income tab
-    final finalAmount = isIncome ? amount.abs() : -amount.abs();
+    // For both income and expense, we store positive amounts and use groupType to distinguish them
+    // The sign is only used for display purposes, not for calculation
+    final finalAmount = amount.abs();
 
     try {
       Transaction? result;
