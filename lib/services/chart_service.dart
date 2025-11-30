@@ -9,7 +9,7 @@ class ChartService {
       ChartData(
         category: 'Ăn uống',
         amount: 2500000, // Đã sửa lỗi số tiền
-        percentage: 35, 
+        percentage: 35,
         icon: '🍽️',
       ),
       ChartData(
@@ -45,7 +45,10 @@ class ChartService {
       ChartData(
           category: 'Mua sắm', amount: 1000000, percentage: 15.38, icon: '🛍️'),
       ChartData(
-          category: 'Di chuyển', amount: 1500000, percentage: 23.08, icon: '🚗'),
+          category: 'Di chuyển',
+          amount: 1500000,
+          percentage: 23.08,
+          icon: '🚗'),
       ChartData(
           category: 'Giải trí', amount: 500000, percentage: 7.69, icon: '🎬'),
       ChartData(category: 'Khác', amount: 500000, percentage: 7.69, icon: '🏠'),
@@ -59,7 +62,7 @@ class ChartService {
     ],
   };
 
-  static List<ChartData> getExpenseChartData({int? year, int? month}) {
+  static Future<List<ChartData>> getExpenseChartData({int? year, int? month}) async {
     final now = DateTime.now();
     final targetYear = year ?? now.year;
     final targetMonth = month ?? now.month;
@@ -108,5 +111,107 @@ class ChartService {
       {'month': 'T11', 'expense': 15000000, 'income': 20000000},
       {'month': 'T12', 'expense': 18000000, 'income': 22000000},
     ];
+  }
+
+  // Thêm dữ liệu mẫu cho thu nhập
+  static final Map<String, List<ChartData>> _monthlyIncomeData = {
+    '2025-12': [
+      ChartData(
+        category: 'Lương',
+        amount: 15000000,
+        percentage: 75,
+        icon: '💰',
+      ),
+      ChartData(
+        category: 'Đầu tư',
+        amount: 3000000,
+        percentage: 15,
+        icon: '📈',
+      ),
+      ChartData(
+        category: 'Làm thêm',
+        amount: 2000000,
+        percentage: 10,
+        icon: '💼',
+      ),
+    ],
+    // Thêm dữ liệu cho các tháng khác nếu cần
+    '2025-11': [
+      ChartData(
+        category: 'Lương',
+        amount: 15000000,
+        percentage: 80,
+        icon: '💰',
+      ),
+      ChartData(
+        category: 'Đầu tư',
+        amount: 2000000,
+        percentage: 15,
+        icon: '📈',
+      ),
+      ChartData(
+        category: 'Làm thêm',
+        amount: 1000000,
+        percentage: 5,
+        icon: '💼',
+      ),
+    ],
+    '2025-10': [
+      ChartData(
+        category: 'Lương',
+        amount: 15000000,
+        percentage: 85,
+        icon: '💰',
+      ),
+      ChartData(
+        category: 'Đầu tư',
+        amount: 1500000,
+        percentage: 10,
+        icon: '📈',
+      ),
+      ChartData(
+        category: 'Làm thêm',
+        amount: 1000000,
+        percentage: 5,
+        icon: '💼',
+      ),
+    ],
+  };
+
+// Thêm phương thức mới để lấy dữ liệu thu nhập
+  static Future<List<ChartData>> getIncomeChartData({int? year, int? month}) async {
+    final now = DateTime.now();
+    final targetYear = year ?? now.year;
+    final targetMonth = month ?? now.month;
+
+    // Tạo khóa tìm kiếm thực tế: 'YYYY-MM'
+    final key = '$targetYear-${targetMonth.toString().padLeft(2, '0')}';
+
+    // Lấy dữ liệu thu nhập
+    List<ChartData> data = _monthlyIncomeData[key] ?? [];
+
+    // Nếu không có dữ liệu, trả về dữ liệu mẫu
+    if (data.isEmpty) {
+      final mockKey = '2025-${targetMonth.toString().padLeft(2, '0')}';
+      data = _monthlyIncomeData[mockKey] ?? [];
+    }
+
+    if (data.isEmpty) {
+      return [];
+    }
+
+    // Tính toán lại phần trăm
+    final totalAmount = data.fold<double>(0, (sum, item) => sum + item.amount);
+    if (totalAmount == 0) return data;
+
+    return data.map((item) {
+      double calculatedPercentage = (item.amount / totalAmount) * 100;
+      return ChartData(
+        category: item.category,
+        amount: item.amount,
+        percentage: calculatedPercentage.roundToDouble(),
+        icon: item.icon,
+      );
+    }).toList();
   }
 }

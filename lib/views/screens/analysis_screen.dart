@@ -5,6 +5,7 @@ import 'package:money_manage/services/chart_service.dart';
 // Giả định file AppTheme tồn tại để sử dụng màu sắc
 import 'package:money_manage/theme/app_theme.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 // CHUYỂN TỪ StatelessWidget SANG StatefulWidget
 class AnalysisScreen extends StatefulWidget {
@@ -18,16 +19,75 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   // Biến trạng thái cho bộ lọc thời gian
   late List<Map<String, dynamic>> _timeFilters;
   late Map<String, dynamic> _selectedFilter;
+  final ScrollController _scrollController = ScrollController();
 
-  // Dữ liệu chi tiêu cho tháng được chọn
-  List<ChartData> _chartData = [];
+  // Trạng thái phân tích (Chi tiêu/Thu nhập)
+  bool _isExpenseAnalysis = true;
   bool _isLoading = true;
+
+  // Lưu trữ riêng dữ liệu chi tiêu và thu nhập
+  List<ChartData> _expenseData = [];
+  List<ChartData> _incomeData = [];
+
+  // Getter để lấy dữ liệu hiện tại
+  List<ChartData> get _currentData => _isExpenseAnalysis ? _expenseData : _incomeData;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_scrollListener);
     _initializeTimeFilters();
-    _loadChartData();
+    _loadBothChartData(); // Tải cả 2 loại dữ liệu
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    // Xử lý sự kiện scroll nếu cần
+  }
+
+  // Tải song song dữ liệu chi tiêu và thu nhập
+  Future<void> _loadBothChartData() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+
+    final year = _selectedFilter['year'] as int;
+    final month = _selectedFilter['month'] as int;
+
+    try {
+      final expenseFuture = ChartService.getExpenseChartData(year: year, month: month);
+      final incomeFuture = ChartService.getIncomeChartData(year: year, month: month);
+
+      final results = await Future.wait([expenseFuture, incomeFuture]);
+
+      if (!mounted) return;
+      
+      setState(() {
+        _expenseData = results[0];
+        _incomeData = results[1];
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      // Xử lý lỗi nếu cần
+      if (kDebugMode) {
+        print('Error loading chart data: $e');
+      }
+    }
+  }
+
+  // Chuyển đổi giữa chi tiêu và thu nhập
+  void _toggleAnalysisType(bool isExpense) {
+    if (_isExpenseAnalysis != isExpense) {
+      setState(() {
+        _isExpenseAnalysis = isExpense;
+      });
+    }
   }
 
   // Khởi tạo bộ lọc thời gian (12 tháng gần nhất)
@@ -35,7 +95,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final now = DateTime.now();
 
     // Tạo danh sách 12 tháng từ tháng hiện tại lùi về
-    final tempFilters = List.generate(12, (index) {
+    _timeFilters = List.generate(12, (index) {
       final date = DateTime(now.year, now.month - index, 1);
       final monthName = DateFormat('MMM yyyy').format(date);
       final monthKey = '${date.year}-${date.month.toString().padLeft(2, '0')}';
@@ -45,36 +105,60 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         'month': date.month,
         'key': monthKey,
       };
-    });
-
-    // Đảo ngược danh sách (từ cũ nhất đến mới nhất)
-    _timeFilters = tempFilters.reversed.toList();
+    }).reversed.toList();
 
     // Set tháng hiện tại là mặc định (phần tử cuối cùng)
     _selectedFilter = _timeFilters.last;
+    
+    // Tự động cuộn đến tháng hiện tại sau khi UI được build xong
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToSelectedMonth();
+    });
+  }
+  
+  // Cuộn đến tháng được chọn
+  void _scrollToSelectedMonth() {
+    if (_scrollController.hasClients) {
+      final index = _timeFilters.indexWhere(
+        (filter) => filter['key'] == _selectedFilter['key']
+      );
+      if (index != -1) {
+        final double itemWidth = 100.0; // Chiều rộng ước tính của mỗi mục lọc
+        final double screenWidth = MediaQuery.of(context).size.width;
+        final double scrollPosition = 
+            (itemWidth * index) - (screenWidth / 2) + (itemWidth / 2);
+        
+        _scrollController.animateTo(
+          scrollPosition.clamp(0.0, _scrollController.position.maxScrollExtent),
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    }
   }
 
-  // Widget hiển thị Tổng chi tiêu (Đã loại bỏ Card và Elevation)
+  // Widget hiển thị Tổng tiền (Chi tiêu/Thu nhập)
   Widget _buildTotalExpenseCard(double totalAmount) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // const Text(
-        //   'Tổng chi tiêu tháng này',
-        //   style: TextStyle(
-        //     fontSize: 14,
-        //     color: Colors.grey,
-        //     fontWeight: FontWeight.w500,
-        //   ),
-        // ),
+        Text(
+          _isExpenseAnalysis ? 'Tổng chi tiêu' : 'Tổng thu nhập',
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           '${_formatCurrency(totalAmount)} VND',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            // Sử dụng màu chủ đạo của Theme
-            color: Theme.of(context).primaryColor,
+            color: _isExpenseAnalysis
+                ? Colors.red[700] // Màu đỏ cho chi tiêu
+                : Colors.green[700], // Màu xanh lá cho thu nhập
           ),
         ),
       ],
@@ -83,19 +167,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   // Tải dữ liệu biểu đồ dựa trên bộ lọc được chọn
   void _loadChartData() {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final year = _selectedFilter['year'] as int;
-    final month = _selectedFilter['month'] as int;
-
-    // Sử dụng service để lấy dữ liệu đã được lọc
-    _chartData = ChartService.getExpenseChartData(year: year, month: month);
-
-    setState(() {
-      _isLoading = false;
-    });
+    _loadBothChartData();
   }
 
   // Áp dụng bộ lọc mới và tải lại dữ liệu
@@ -108,6 +180,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     });
 
     _loadChartData();
+    _scrollToSelectedMonth();
   }
 
   // Helper method để định dạng tiền tệ (VD: 1,000,000)
@@ -134,20 +207,87 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return colors[category] ?? Colors.grey;
   }
 
+  // Widget xây dựng nút chuyển đổi giữa Chi tiêu và Thu nhập
+  Widget _buildAnalysisTypeToggle() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Row(
+        children: [
+          // Nút Chi tiêu
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _toggleAnalysisType(true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: _isExpenseAnalysis
+                      ? Theme.of(context).primaryColor
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Center(
+                  child: Text(
+                    'Chi tiêu',
+                    style: TextStyle(
+                      color: _isExpenseAnalysis ? Colors.white : Colors.grey[700],
+                      fontWeight: _isExpenseAnalysis ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Nút Thu nhập
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _toggleAnalysisType(false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: !_isExpenseAnalysis
+                      ? Theme.of(context).primaryColor
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Center(
+                  child: Text(
+                    'Thu nhập',
+                    style: TextStyle(
+                      color: !_isExpenseAnalysis ? Colors.white : Colors.grey[700],
+                      fontWeight: !_isExpenseAnalysis ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Tính tổng chi tiêu của tháng hiện tại
-    final totalExpense =
-        _chartData.fold<double>(0, (sum, item) => sum + item.amount);
+    // Tính tổng tiền (chi tiêu hoặc thu nhập) của tháng hiện tại
+    final totalAmount = _currentData.fold<double>(0, (sum, item) => sum + item.amount);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Expense Analysis'),
+        title: const Text('Analysis'),
         centerTitle: true,
-        // Thanh lọc thời gian ở dưới AppBar
+        // Thanh lọc thời gian và nút chuyển đổi
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: _buildTimeFilterBar(context),
+          preferredSize: const Size.fromHeight(100),
+          child: Column(
+            children: [
+              _buildTimeFilterBar(context),
+              _buildAnalysisTypeToggle(),
+            ],
+          ),
         ),
       ),
       body: _isLoading
@@ -159,27 +299,28 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 children: [
                   const SizedBox(height: 12),
 
-                  // THẺ TỔNG CHI TIÊU Ở TRÊN CÙNG
-                  _buildTotalExpenseCard(totalExpense),
+                  // THẺ TỔNG TIỀN Ở TRÊN CÙNG
+                  _buildTotalExpenseCard(totalAmount),
 
                   const SizedBox(height: 24),
 
                   // Hiển thị Biểu đồ hoặc Thông báo rỗng
-                  _chartData.isEmpty
+                  _currentData.isEmpty
                       ? Center(
                           child: Text(
-                            'Không có chi tiêu nào trong ${_selectedFilter['label']}',
-                            style: const TextStyle(
-                                fontSize: 16, color: Colors.grey),
+                            _isExpenseAnalysis
+                                ? 'Không có chi tiêu nào trong ${_selectedFilter['label']}'
+                                : 'Không có thu nhập nào trong ${_selectedFilter['label']}',
+                            style: const TextStyle(fontSize: 16, color: Colors.grey),
                           ),
                         )
-                      // BIỂU ĐỒ TRÒN (Không còn tổng tiền ở giữa)
-                      : _buildExpenseChart(_chartData, totalExpense),
+                      // HIỂN THỊ BIỂU ĐỒ
+                      : _buildExpenseChart(_currentData, totalAmount),
 
                   const SizedBox(height: 24),
 
                   // Danh sách chi tiết
-                  if (_chartData.isNotEmpty) _buildExpenseList(_chartData),
+                  if (_currentData.isNotEmpty) _buildExpenseList(_currentData),
                 ],
               ),
             ),
@@ -192,6 +333,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       height: 60,
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: ListView.builder(
+        controller: _scrollController,
         scrollDirection: Axis.horizontal,
         itemCount: _timeFilters.length,
         padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -233,8 +375,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   Widget _buildExpenseChart(List<ChartData> data, double totalAmount) {
     return Center(
       child: SizedBox(
-        height: 220,
-        width: 220,
+        height: 210,
+        width: 210,
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -242,7 +384,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               PieChartData(
                 sections: _chartSections(data),
                 sectionsSpace: 2,
-                centerSpaceRadius: 60, // Giữ khoảng trống ở giữa
+                centerSpaceRadius: 0, 
                 pieTouchData: PieTouchData(enabled: false),
               ),
             ),
@@ -254,17 +396,38 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   // Hàm tạo các lát cắt cho PieChart
   List<PieChartSectionData> _chartSections(List<ChartData> data) {
+    // Hàm tạo màu ngẫu nhiên dựa trên tên danh mục
+    Color getColorForCategory(String category, bool isExpense) {
+      // Tạo một mã băm từ tên danh mục để đảm bảo tính nhất quán
+      final hash = category.hashCode.abs();
+      
+      // Chọn bảng màu dựa trên loại (chi tiêu hoặc thu nhập)
+      final hueRange = isExpense 
+          ? const [0, 60] // Đỏ đến vàng
+          : [80, 180];    // Xanh lá đến xanh dương
+      
+      // Tạo màu dựa trên mã băm
+      return HSLColor.fromAHSL(
+        1.0, // Độ trong suốt
+        (hash % (hueRange[1] - hueRange[0]) + hueRange[0]).toDouble(), // Màu sắc
+        0.7, // Độ bão hòa
+        0.6, // Độ sáng
+      ).toColor();
+    }
+    
     return data.map((item) {
+      final color = getColorForCategory(item.category, _isExpenseAnalysis);
       return PieChartSectionData(
-        color: _getColorForCategory(item.category),
+        color: color,
         value: item.percentage,
-        title: '${item.percentage.toInt()}%',
-        radius: 60,
+        title: '${item.percentage.round()}%',
+        radius: 100,
         titleStyle: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
           color: Colors.white,
         ),
+        borderSide: const BorderSide(color: Colors.white, width: 0.5),
       );
     }).toList();
   }
@@ -274,9 +437,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Chi tiết chi tiêu',
-          style: TextStyle(
+        Text(
+          _isExpenseAnalysis ? 'Chi tiết chi tiêu' : 'Chi tiết thu nhập',
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -297,25 +460,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Icon
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _getColorForCategory(item.category).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                item.icon,
-                style: TextStyle(
-                  fontSize: 22,
-                  color: _getColorForCategory(item.category),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
           // Danh mục và số giao dịch
           Expanded(
             child: Column(
@@ -341,7 +485,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           ),
           // Số tiền chi tiêu
           Text(
-            '-${_formatCurrency(item.amount)} VND',
+            '${_isExpenseAnalysis ? '-' : '+'}${_formatCurrency(item.amount)} VND',
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
