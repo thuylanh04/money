@@ -34,6 +34,7 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
 
+      if (!mounted) return;
       setState(() {
         _isProcessing = true;
         _imagePath = image.path;
@@ -47,8 +48,11 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
           amount: receiptData.amount,
           date: widget.transaction.date,
           note: receiptData.note ?? widget.transaction.note,
-          image: _imagePath,
-          categoryIdFE: receiptData.categoryId ?? widget.transaction.categoryIdFE,
+          image: _imagePath != null
+              ? <String>[_imagePath!]
+              : widget.transaction.image,
+          categoryIdFE:
+              receiptData.categoryId ?? widget.transaction.categoryIdFE,
           walletIdFE: widget.transaction.walletIdFE,
         );
 
@@ -79,10 +83,11 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
     // Default to expense if groupType is null
     final isExpense = widget.transaction.groupType != 'income';
     final amountColor = isExpense ? AppTheme.errorRed : AppTheme.primaryGreen;
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isNewTransaction ? 'Giao dịch mới' : 'Chi tiết giao dịch'),
+        title: Text(
+            widget.isNewTransaction ? 'Giao dịch mới' : 'Chi tiết giao dịch'),
         centerTitle: true,
         actions: [
           if (widget.isNewTransaction)
@@ -120,14 +125,19 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDetailRow('Danh mục', widget.transaction.categoryIdFE ?? 'Chưa phân loại'),
+                    _buildDetailRow('Danh mục',
+                        widget.transaction.categoryIdFE ?? 'Chưa phân loại'),
                     const Divider(),
-                    _buildDetailRow('Ví', widget.transaction.walletIdFE ?? 'Chưa chọn'),
+                    _buildDetailRow(
+                        'Ví', widget.transaction.walletIdFE ?? 'Chưa chọn'),
                     const Divider(),
-                    _buildDetailRow('Ngày', DateFormat('dd/MM/yyyy').format(widget.transaction.date)),
+                    _buildDetailRow(
+                        'Ngày',
+                        DateFormat('dd/MM/yyyy')
+                            .format(widget.transaction.date)),
                     if (widget.transaction.note?.isNotEmpty ?? false) ...[
                       const Divider(),
-                      _buildDetailRow('Ghi chú', widget.transaction.note!), 
+                      _buildDetailRow('Ghi chú', widget.transaction.note!),
                     ],
                   ],
                 ),
@@ -138,7 +148,8 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
             _buildReceiptPreview(),
 
             // Receipt Image (if available)
-            if (widget.transaction.image != null && widget.transaction.image!.isNotEmpty) ...[
+            if (widget.transaction.image != null &&
+                widget.transaction.image!.isNotEmpty) ...[
               const SizedBox(height: 16),
               const Text(
                 'Receipt',
@@ -150,24 +161,57 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
               const SizedBox(height: 8),
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  widget.transaction.image!,
-                  fit: BoxFit.cover,
-                  height: 200,
-                  width: double.infinity,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    height: 200,
-                    color: Colors.grey[200],
-                    child: const Center(
-                      child: Icon(Icons.receipt, size: 48, color: Colors.grey),
-                    ),
-                  ),
-                ),
+                child: Builder(builder: (context) {
+                  final first = widget.transaction.image!.first;
+                  if (first.toLowerCase().startsWith('http')) {
+                    return Image.network(
+                      first,
+                      fit: BoxFit.cover,
+                      height: 200,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child:
+                              Icon(Icons.receipt, size: 48, color: Colors.grey),
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Fallback: if it's a local file path show Image.file
+                  try {
+                    return Image.file(
+                      File(first),
+                      fit: BoxFit.cover,
+                      height: 200,
+                      width: double.infinity,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        height: 200,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child:
+                              Icon(Icons.receipt, size: 48, color: Colors.grey),
+                        ),
+                      ),
+                    );
+                  } catch (_) {
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: const Center(
+                        child:
+                            Icon(Icons.receipt, size: 48, color: Colors.grey),
+                      ),
+                    );
+                  }
+                }),
               ),
             ],
 
             const SizedBox(height: 24),
-            
+
             // Delete Button
             SizedBox(
               width: double.infinity,
@@ -176,7 +220,8 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
                   // TODO: Implement delete functionality
                   Navigator.pop(context);
                 },
-                icon: const Icon(Icons.delete_outline, color: AppTheme.errorRed),
+                icon:
+                    const Icon(Icons.delete_outline, color: AppTheme.errorRed),
                 label: const Text(
                   'Delete Transaction',
                   style: TextStyle(color: AppTheme.errorRed),
@@ -225,7 +270,7 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
   // Add receipt image preview
   Widget _buildReceiptPreview() {
     if (_imagePath == null) return const SizedBox.shrink();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -208,6 +208,47 @@ class TransactionService {
     }
   }
 
+  /// Fetch a single transaction by idFE from the API and return a [Transaction].
+  /// Enriches the returned transaction with category group info when available.
+  Future<Transaction> transactionDetail(String transactionId) async {
+    try {
+      // Load categories first for enrichment
+      final categories = await getCategories();
+
+      final response = await _client.get('/api/v1/transactions/$transactionId');
+
+      if (response is Map<String, dynamic> && response['code'] == 1000) {
+        final Map<String, dynamic> json = response['result'] ?? {};
+        final transaction = Transaction.fromJson(json);
+
+        final categoryInfo = categories[transaction.categoryIdFE];
+        if (categoryInfo != null) {
+          return Transaction(
+            idFE: transaction.idFE,
+            amount: transaction.amount,
+            date: transaction.date,
+            note: transaction.note,
+            image: transaction.image,
+            categoryIdFE: transaction.categoryIdFE,
+            walletIdFE: transaction.walletIdFE,
+            categoryName: transaction.categoryName,
+            walletName: transaction.walletName,
+            groupIdFE: categoryInfo['groupId'],
+            groupType: categoryInfo['groupType'],
+          );
+        }
+
+        return transaction;
+      } else {
+        throw Exception(
+            response?['message']?.toString() ?? 'Failed to fetch transaction');
+      }
+    } catch (e) {
+      print('Error in transactionDetail: $e');
+      rethrow;
+    }
+  }
+
   Future<Transaction> updateTransaction({
     required String transactionId,
     required double amount,
@@ -312,4 +353,5 @@ class TransactionService {
       rethrow;
     }
   }
+
 }

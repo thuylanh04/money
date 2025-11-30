@@ -4,7 +4,7 @@ class Transaction {
   final double amount;
   final DateTime date;
   final String? note;
-  final String? image;
+  final List<String>? image;
   final String? categoryIdFE;
   final String? walletIdFE;
   final String? categoryName;
@@ -31,7 +31,7 @@ class Transaction {
     double? amount,
     DateTime? date,
     String? note,
-    String? image,
+    List<String>? image,
     String? categoryIdFE,
     String? walletIdFE,
     String? categoryName,
@@ -59,7 +59,8 @@ class Transaction {
     String? extractName(String? idFE) {
       if (idFE == null) return null;
       // Extract the name part before the date string
-      final dateIndex = idFE.indexOf(RegExp(r'[A-Za-z]{3} [A-Za-z]{3} \d{1,2} \d{2}:\d{2}:\d{2}'));
+      final dateIndex = idFE.indexOf(
+          RegExp(r'[A-Za-z]{3} [A-Za-z]{3} \d{1,2} \d{2}:\d{2}:\d{2}'));
       return dateIndex > 0 ? idFE.substring(0, dateIndex).trim() : idFE;
     }
 
@@ -69,11 +70,22 @@ class Transaction {
     return Transaction(
       idFE: json['idFE']?.toString() ?? '',
       amount: amount,
-      date: json['date'] != null 
+      date: json['date'] != null
           ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
           : DateTime.now(),
       note: json['note']?.toString(),
-      image: json['image']?.toString(),
+      image: () {
+        final raw = json['image'];
+        if (raw == null) return null;
+        if (raw is List) {
+          return raw
+              .map((e) => e?.toString() ?? '')
+              .where((s) => s.isNotEmpty)
+              .toList();
+        }
+        final s = raw.toString();
+        return s.isEmpty ? null : <String>[s];
+      }(),
       categoryIdFE: json['categoryIdFE']?.toString(),
       walletIdFE: json['walletIdFE']?.toString(),
       categoryName: extractName(json['categoryIdFE']?.toString()),

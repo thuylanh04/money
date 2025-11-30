@@ -41,7 +41,8 @@ class TransactionDetailScreen extends StatefulWidget {
   }
 
   @override
-  State<TransactionDetailScreen> createState() => _TransactionDetailScreenState();
+  State<TransactionDetailScreen> createState() =>
+      _TransactionDetailScreenState();
 }
 
 class _TransactionDetailScreenState extends State<TransactionDetailScreen>
@@ -54,20 +55,27 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   final ImagePicker _picker = ImagePicker();
   final List<XFile> _receiptImages = <XFile>[];
   String? _receiptError;
+  // Remote receipt URLs returned from the server
+  List<String> _remoteReceiptUrls = [];
   final ReceiptRepository _receiptRepository = ReceiptRepository();
   final GroupService _groupService = GroupService(ApiClient());
   final WalletService _walletService = WalletService(ApiClient());
-  
+
   // Wallet related state
   List<Wallet> _wallets = [];
   Wallet? _selectedWallet;
   bool _isLoadingWallets = false;
   String? _walletError;
-  
+  // If passed transaction has a wallet id before wallets are loaded,
+  // store it here and apply when wallets arrive to pick the same instance.
+  String? _initialWalletId;
+  String? _initialWalletName;
+
   // Categories and AI state
   List<CategoryFE> _categories = [];
   bool _isAiRunning = false;
   bool _aiCompleted = false;
+  bool _isSaving = false;
 
   String _expenseLabel = 'Expense';
   String _incomeLabel = 'Income';
@@ -76,6 +84,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   String? _incomeGroupIdFE;
   String? _debtGroupIdFE;
   CategoryFE? _selectedCategory;
+  Transaction? _transaction;
+
+  // Field validation errors
+  String? _amountError;
+  String? _categoryError;
+  String? _walletValidationError;
 
   // Helper method to determine if a transaction is income
   // Now we'll check the group type instead of amount sign
@@ -89,55 +103,112 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     _tabController = TabController(length: 3, vsync: this, initialIndex: 0);
     _fetchWallets();
     _loadCategories();
-    
+
     // Pre-fill form if editing existing transaction
     if (widget.transaction != null) {
+      // quick prefill from the passed object while we fetch the full detail
+      _transaction = widget.transaction;
       final transaction = widget.transaction!;
-      _amountController.text = transaction.amount.toString(); // Remove abs() since amount is always positive
+      _amountController.text = transaction.amount.toString();
       _noteController.text = transaction.note ?? '';
       _selectedDate = transaction.date;
-      
+
       // Set the transaction type tab (income/expense)
       final tabIndex = _isIncome(transaction) ? 0 : 1;
       _tabController.animateTo(tabIndex);
-      
-      // Load category if available
+
+      // Try to set category and wallet from the shallow object; they will be
+      // overwritten when full detail loads.
       if (transaction.categoryIdFE != null) {
-        // Find and set the category
         try {
           final category = _categories.firstWhere(
             (c) => c.idFE == transaction.categoryIdFE,
           );
           _selectedCategory = category;
         } catch (e) {
-          // If category not found, create a basic one with the available data
           _selectedCategory = CategoryFE(
             idFE: transaction.categoryIdFE!,
             categoryName: transaction.categoryName ?? 'Unknown',
-            groupIdFE: '', // We don't have this info, using empty string
+            groupIdFE: '',
           );
         }
       }
-      
-      // Load wallet if available
+
       if (transaction.walletIdFE != null) {
-        _selectedWallet = Wallet(
-          idFE: transaction.walletIdFE!,
-          walletName: transaction.walletName ?? 'Unknown',
-        );
+        _initialWalletId = transaction.walletIdFE;
+        _initialWalletName = transaction.walletName;
       }
-      
-      // Load receipt image if exists
-      if (transaction.image != null) {
-        // You may need to handle loading the image from the URL here
+
+      // If server provided image URLs, store them to display as remote receipts
+      if (transaction.image != null && transaction.image!.isNotEmpty) {
+        _remoteReceiptUrls = List<String>.from(transaction.image!);
       }
     }
     _tabController.addListener(_handleTabChanged);
     _loadGroups();
     _fetchWallets();
     _loadCategories();
+
+    // If we have an initial transaction, fetch full details from server
+    if (widget.transaction != null) {
+      _loadTransactionDetail();
+    }
   }
-  
+
+  Future<void> _loadTransactionDetail() async {
+    if (widget.transaction == null) return;
+    try {
+      final service = TransactionService();
+      final detail = await service.transactionDetail(widget.transaction!.idFE);
+      if (!mounted) return;
+
+      setState(() {
+        _transaction = detail;
+        _amountController.text = detail.amount.toString();
+        _noteController.text = detail.note ?? '';
+        _selectedDate = detail.date;
+
+        // Set selected category if available
+        if (detail.categoryIdFE != null) {
+          try {
+            final category = _categories.firstWhere(
+              (c) => c.idFE == detail.categoryIdFE,
+            );
+            _selectedCategory = category;
+          } catch (e) {
+            _selectedCategory = CategoryFE(
+              idFE: detail.categoryIdFE!,
+              categoryName: detail.categoryName ?? 'Unknown',
+              groupIdFE: detail.groupIdFE ?? '',
+            );
+          }
+        }
+
+        if (detail.walletIdFE != null) {
+          // Prefer to pick the instance from _wallets when available to
+          // avoid DropdownButton identity mismatch. If wallets not loaded yet,
+          // remember the id and name and select later in _fetchWallets.
+          if (_wallets.isNotEmpty) {
+            try {
+              _selectedWallet =
+                  _wallets.firstWhere((w) => w.idFE == detail.walletIdFE);
+            } catch (_) {
+              _selectedWallet = null;
+            }
+          } else {
+            _initialWalletId = detail.walletIdFE;
+            _initialWalletName = detail.walletName;
+          }
+        }
+
+        // Remote images
+        _remoteReceiptUrls = detail.image ?? [];
+      });
+    } catch (e) {
+      debugPrint('Error loading transaction detail: $e');
+    }
+  }
+
   Future<void> _loadCategories() async {
     try {
       final categoryService = CategoryService(ApiClient());
@@ -164,13 +235,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     _noteController.dispose();
     super.dispose();
   }
-  
-  
+
   Future<void> _runAiClassification() async {
     if (_receiptImages.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng đính kèm ít nhất một ảnh hóa đơn.')),
+          const SnackBar(
+              content: Text('Vui lòng đính kèm ít nhất một ảnh hóa đơn.')),
         );
       }
       return;
@@ -194,7 +265,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       debugPrint('AI classification error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể phân tích hóa đơn. Vui lòng thử lại.')),
+          const SnackBar(
+              content: Text('Không thể phân tích hóa đơn. Vui lòng thử lại.')),
         );
       }
     } finally {
@@ -208,10 +280,16 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
 
   AppBar _buildAppBar() {
     return AppBar(
-      title: Text(widget.transaction == null ? 'Add Transaction' : 'Transaction Details'),
+      title: Text(widget.transaction == null
+          ? 'Add Transaction'
+          : 'Transaction Details'),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          // Use maybePop to avoid Navigator locked assertion when a navigation
+          // operation is already in progress.
+          Navigator.of(context).maybePop();
+        },
       ),
       actions: widget.transaction != null
           ? [
@@ -221,15 +299,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
               ),
             ]
           : null,
+      // TabBar moved into the body so it renders reliably on a white background.
     );
   }
-  
+
   Future<void> _showDeleteConfirmation() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Transaction'),
-        content: const Text('Are you sure you want to delete this transaction?'),
+        content:
+            const Text('Are you sure you want to delete this transaction?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -248,14 +328,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       await _deleteTransaction();
     }
   }
-  
+
   Future<void> _deleteTransaction() async {
     if (widget.transaction == null) return;
-    
+
     try {
       final transactionService = TransactionService();
-      final success = await transactionService.deleteTransaction(widget.transaction!.idFE);
-      
+      final success =
+          await transactionService.deleteTransaction(widget.transaction!.idFE);
+
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Transaction deleted successfully')),
@@ -279,155 +360,210 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     final isTablet = media.size.width > 600;
     final horizontalPadding = isTablet ? media.size.width * 0.08 : 16.0;
 
-    return Scaffold(
-      appBar: _buildAppBar(),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
-              child: Column(
-                children: [
-                  _buildWalletSelection(),
-                  const SizedBox(height: 12),
-                  _AmountField(
-                    controller: _amountController,
-                    onTap: () {
-                      setState(() {
-                        _showCalculator = !_showCalculator;
-                      });
-                    },
+    final mainContent = Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding, vertical: 16),
+            child: Column(
+              children: [
+                // Tab selector (Expense / Income / Debt-Loan)
+                Container(
+                  color: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicatorColor: AppTheme.primaryGreen,
+                    labelColor: AppTheme.primaryGreen,
+                    unselectedLabelColor: Colors.grey[600],
+                    tabs: [
+                      Tab(text: _expenseLabel),
+                      Tab(text: _incomeLabel),
+                      Tab(text: _debtLabel),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  _RowItem(
-                    leading: const Icon(Icons.category_outlined),
-                    title: _selectedCategory?.categoryName ?? 'Select category',
-                    subtitle: _selectedCategory == null ? 'Tap to choose' : null,
-                    showChevron: true,
-                    onTap: () async {
-                      final result = await Navigator.of(context).pushNamed(
-                        SelectCategoryScreen.routeName,
-                      );
-                      if (result is CategoryFE) {
-                        setState(() {
-                          _selectedCategory = result;
-                          _updateTabForCategory(result);
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: () async {
-                      final result = await showDialog<String>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Add Note'),
-                          content: TextField(
-                            controller: _noteController,
-                            autofocus: true,
-                            decoration: const InputDecoration(
-                              hintText: 'Enter your note here',
-                              border: OutlineInputBorder(),
-                            ),
-                            maxLines: 3,
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.pop(context, _noteController.text),
-                              child: const Text('Save'),
-                            ),
-                          ],
-                        ),
-                      );
-                      if (result != null) {
-                        setState(() {
-                          _noteController.text = result;
-                        });
-                      }
-                    },
-                    child: _RowItem(
-                      leading: const Icon(Icons.notes_outlined),
-                      title: _noteController.text.isNotEmpty ? _noteController.text : 'Write note',
-                      subtitle: _noteController.text.isEmpty ? 'Optional' : null,
-                      showChevron: true,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildReceiptRow(context),
-                  const SizedBox(height: 12),
-                  _RowItem(
-                    leading: const Icon(Icons.calendar_today_outlined),
-                    title: _formatDate(_selectedDate),
-                    subtitle: 'Transaction Date',
-                    showChevron: true,
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setState(() {
-                          _selectedDate = picked;
-                        });
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _RowItem(
-                    leading: const Icon(Icons.person_outline),
-                    title: 'With',
-                    subtitle: 'Select contact',
-                    showChevron: true,
-                  ),
-                  const SizedBox(height: 12),
-                  _RowItem(
-                    leading: const Icon(Icons.event_outlined),
-                    title: 'Select event',
-                    subtitle: 'No event selected',
-                    showChevron: true,
-                  ),
-                  const SizedBox(height: 12),
-                  SwitchListTile.adaptive(
-                    value: false,
-                    onChanged: (_) {},
-                    title: const Text('Exclude from report'),
-                    subtitle: const Text(
-                      'This transaction will not be included in reports and statistics.',
-                      style: TextStyle(fontSize: 12),
-                    ),
+                ),
+                const SizedBox(height: 8),
+                _buildWalletSelection(),
+                const SizedBox(height: 12),
+                _AmountField(
+                  controller: _amountController,
+                  onTap: () {
+                    setState(() {
+                      _showCalculator = !_showCalculator;
+                    });
+                  },
+                ),
+                if (_amountError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _amountError!,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
                   ),
                 ],
-              ),
+                const SizedBox(height: 12),
+                _RowItem(
+                  leading: const Icon(Icons.category_outlined),
+                  title: _selectedCategory?.categoryName ?? 'Select category',
+                  subtitle: _selectedCategory == null ? 'Tap to choose' : null,
+                  showChevron: true,
+                  onTap: () async {
+                    final result = await Navigator.of(context).pushNamed(
+                      SelectCategoryScreen.routeName,
+                    );
+                    if (result is CategoryFE) {
+                      setState(() {
+                        _selectedCategory = result;
+                        _updateTabForCategory(result);
+                      });
+                    }
+                  },
+                ),
+                if (_categoryError != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _categoryError!,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () async {
+                    final result = await showDialog<String>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Add Note'),
+                        content: TextField(
+                          controller: _noteController,
+                          autofocus: true,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter your note here',
+                            border: OutlineInputBorder(),
+                          ),
+                          maxLines: 3,
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                Navigator.pop(context, _noteController.text),
+                            child: const Text('Save'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (result != null) {
+                      setState(() {
+                        _noteController.text = result;
+                      });
+                    }
+                  },
+                  child: _RowItem(
+                    leading: const Icon(Icons.notes_outlined),
+                    title: _noteController.text.isNotEmpty
+                        ? _noteController.text
+                        : 'Write note',
+                    subtitle: _noteController.text.isEmpty ? 'Optional' : null,
+                    showChevron: true,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildReceiptRow(context),
+                const SizedBox(height: 12),
+                _RowItem(
+                  leading: const Icon(Icons.calendar_today_outlined),
+                  title: _formatDate(_selectedDate),
+                  subtitle: 'Transaction Date',
+                  showChevron: true,
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _selectedDate = picked;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                _RowItem(
+                  leading: const Icon(Icons.person_outline),
+                  title: 'With',
+                  subtitle: 'Select contact',
+                  showChevron: true,
+                ),
+                const SizedBox(height: 12),
+                _RowItem(
+                  leading: const Icon(Icons.event_outlined),
+                  title: 'Select event',
+                  subtitle: 'No event selected',
+                  showChevron: true,
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile.adaptive(
+                  value: false,
+                  onChanged: (_) {},
+                  title: const Text('Exclude from report'),
+                  subtitle: const Text(
+                    'This transaction will not be included in reports and statistics.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
             ),
           ),
-          const Divider(height: 1),
-          if (_showCalculator)
-            _CalculatorPad(
-              controller: _amountController,
-              onSubmit: () {
-                setState(() {
-                  _showCalculator = false;
-                });
-              },
-            )
-          else
-            _SaveBar(
-              onSave: _handleSave,
-              onAiClassify: _runAiClassification,
-              canSave: _canSave,
-              canAiClassify: _canAiClassify,
-              isAiRunning: _isAiRunning,
-            ),
-        ],
-      ),
+        ),
+        const Divider(height: 1),
+        if (_showCalculator)
+          _CalculatorPad(
+            controller: _amountController,
+            onSubmit: () {
+              setState(() {
+                _showCalculator = false;
+              });
+            },
+          )
+        else
+          _SaveBar(
+            onSave: _handleSave,
+            onAiClassify: _runAiClassification,
+            canSave: _canSave,
+            canAiClassify: _canAiClassify,
+            isAiRunning: _isAiRunning,
+          ),
+      ],
     );
+
+    return Scaffold(
+        appBar: _buildAppBar(),
+        body: Transform.translate(
+          offset: const Offset(0, -40),
+          child: Stack(
+            children: [
+              mainContent,
+              if (_isSaving)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    absorbing: true,
+                    child: Container(
+                      color: Colors.black.withOpacity(0.45),
+                      child: const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ));
   }
 
   bool get _canSave {
@@ -467,7 +603,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
 
   Future<void> _fetchWallets() async {
     if (_isLoadingWallets) return;
-    
+
     setState(() {
       _isLoadingWallets = true;
       _walletError = null;
@@ -478,8 +614,24 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       if (mounted) {
         setState(() {
           _wallets = wallets;
-          if (_wallets.isNotEmpty) {
-            _selectedWallet = _wallets.first;
+          // If the caller passed a wallet id earlier, prefer selecting the
+          // matching instance from the freshly loaded list. This ensures the
+          // DropdownButtonFormField's `value` matches one of the `items`.
+          if (_initialWalletId != null) {
+            try {
+              _selectedWallet = _wallets.firstWhere(
+                (w) => w.idFE == _initialWalletId,
+              );
+            } catch (_) {
+              // If no matching wallet found, fall back to first available.
+              if (_wallets.isNotEmpty) _selectedWallet = _wallets.first;
+            }
+            _initialWalletId = null;
+            _initialWalletName = null;
+          } else {
+            if (_wallets.isNotEmpty) {
+              _selectedWallet = _wallets.first;
+            }
           }
         });
       }
@@ -511,8 +663,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           ),
         ),
         const SizedBox(height: 8),
-        if (_isLoadingWallets)
-          const Center(child: CircularProgressIndicator()),
+        if (_isLoadingWallets) const Center(child: CircularProgressIndicator()),
         if (_walletError != null)
           Text(
             _walletError!,
@@ -528,7 +679,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             items: _wallets.map((wallet) {
               return DropdownMenuItem<Wallet>(
@@ -540,10 +692,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
               if (newValue != null) {
                 setState(() {
                   _selectedWallet = newValue;
+                  _walletValidationError = null;
                 });
               }
             },
           ),
+        if (_walletValidationError != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            _walletValidationError!,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ],
       ],
     );
   }
@@ -585,69 +745,88 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   }
 
   Future<void> _handleSave() async {
-    // Validate required fields
+    // Clear previous validation errors
+    setState(() {
+      _amountError = null;
+      _categoryError = null;
+      _walletValidationError = null;
+    });
+
+    // Validate required fields (show inline errors)
     if (_amountController.text.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng nhập số tiền')),
-        );
+        setState(() {
+          _amountError = 'Vui lòng nhập số tiền';
+        });
       }
       return;
     }
 
     if (_selectedCategory == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng chọn danh mục')),
-        );
+        setState(() {
+          _categoryError = 'Vui lòng chọn danh mục';
+        });
       }
       return;
     }
 
     if (_selectedWallet == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng chọn ví')),
-        );
+        setState(() {
+          _walletValidationError = 'Vui lòng chọn ví';
+        });
       }
       return;
     }
 
     // Parse and ensure amount is positive
-    final amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0.0;
+    final amount = double.tryParse(
+            _amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ??
+        0.0;
     final finalAmount = amount.abs(); // Ensure amount is always positive
 
+    // All validation passed — show saving overlay while performing network operations.
+    setState(() {
+      _isSaving = true;
+    });
+
     try {
-      Transaction? result;
-      
       if (widget.transaction != null) {
         // Update existing transaction
         final transactionService = TransactionService();
-        final response = await transactionService.updateTransaction(
-          transactionId: widget.transaction!.idFE,
+        // Convert picked XFile receipts to dart:io File instances
+        final files = _receiptImages.map((x) => File(x.path)).toList();
+        final updated = await transactionService.updateTransaction(
+          transactionId: _transaction?.idFE ?? widget.transaction!.idFE,
           amount: finalAmount,
           categoryIdFE: _selectedCategory!.idFE,
           note: _noteController.text,
           date: _selectedDate,
           walletIdFE: _selectedWallet!.idFE,
+          files: files.isNotEmpty ? files : null,
         );
-        result = response;
+        // response contains the updated Transaction; attach it to local state
         if (mounted) {
+          setState(() {
+            _transaction = updated;
+            _remoteReceiptUrls = updated.image ?? [];
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Cập nhật giao dịch thành công')),
           );
         }
       } else {
         // Create new transaction
-final transactionService = TransactionService();
-final response = await transactionService.createTransaction(
-  amount: finalAmount,
-  date: _selectedDate.toIso8601String(),
-  categoryIdFE: _selectedCategory!.idFE,
-  walletIdFE: _selectedWallet!.idFE,
-  note: _noteController.text.isNotEmpty ? _noteController.text : null,
-);
-result = Transaction.fromJson(response);  // Convert the response to a Transaction object
+        final transactionService = TransactionService();
+        await transactionService.createTransaction(
+          amount: finalAmount,
+          date: _selectedDate.toIso8601String(),
+          categoryIdFE: _selectedCategory!.idFE,
+          walletIdFE: _selectedWallet!.idFE,
+          note: _noteController.text.isNotEmpty ? _noteController.text : null,
+        );
+        // response contains the created Transaction if needed
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Thêm giao dịch thành công')),
@@ -656,14 +835,41 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
       }
 
       if (mounted) {
-        Navigator.of(context).pop(result); // Return the created/updated transaction
+        // Hide saving overlay before navigating away
+        setState(() {
+          _isSaving = false;
+        });
+        // Return a simple success flag to callers (avoid mixing return types)
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       debugPrint('Error saving transaction: $e');
+      if (!mounted) return;
+      final message = e.toString();
+      // Hide overlay on error
+      setState(() {
+        _isSaving = false;
+      });
+      // Show an alert dialog for verification/server errors
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Lỗi'),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      // Ensure overlay is hidden if still mounted
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã xảy ra lỗi. Vui lòng thử lại sau.')),
-        );
+        setState(() {
+          _isSaving = false;
+        });
       }
     }
   }
@@ -674,7 +880,8 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
       builder: (context) {
         return AlertDialog(
           title: const Text('Add bank account'),
-          content: const Text('This is a placeholder for adding a bank account.'),
+          content:
+              const Text('This is a placeholder for adding a bank account.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -687,7 +894,15 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
   }
 
   String _formatDate(DateTime date) {
-    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
     final weekday = weekdays[date.weekday - 1];
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
@@ -718,9 +933,9 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _receiptImages.isEmpty
+                      (_remoteReceiptUrls.isEmpty && _receiptImages.isEmpty)
                           ? 'JPG, PNG, WEBP, HEIC'
-                          : '${_receiptImages.length} file(s) selected',
+                          : '${_remoteReceiptUrls.length + _receiptImages.length} file(s) selected',
                       style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondary,
@@ -732,17 +947,67 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
             ],
           ),
         ),
-        if (_receiptImages.isNotEmpty) ...[
+        if (_remoteReceiptUrls.isNotEmpty || _receiptImages.isNotEmpty) ...[
           const SizedBox(height: 8),
           SizedBox(
             height: 60,
             child: ListView.separated(
               shrinkWrap: true,
               scrollDirection: Axis.horizontal,
-              itemCount: _receiptImages.length,
+              itemCount: _remoteReceiptUrls.length + _receiptImages.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
-                final file = _receiptImages[index];
+                if (index < _remoteReceiptUrls.length) {
+                  final url = _remoteReceiptUrls[index];
+                  return GestureDetector(
+                    onTap: () => _showFullImage(index),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            url,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey.shade200,
+                              child: const Icon(Icons.broken_image),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _remoteReceiptUrls.removeAt(index);
+                              });
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.all(2),
+                              child: const Icon(
+                                Icons.close,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final localIndex = index - _remoteReceiptUrls.length;
+                final file = _receiptImages[localIndex];
                 return GestureDetector(
                   onTap: () => _showFullImage(index),
                   child: Stack(
@@ -762,7 +1027,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
                         child: GestureDetector(
                           onTap: () {
                             setState(() {
-                              _receiptImages.removeAt(index);
+                              _receiptImages.removeAt(localIndex);
                             });
                           },
                           child: Container(
@@ -819,7 +1084,8 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
 
     if (validFiles.isEmpty) {
       setState(() {
-        _receiptError = 'Unsupported file type. Please select JPG, PNG, WEBP or HEIC images.';
+        _receiptError =
+            'Unsupported file type. Please select JPG, PNG, WEBP or HEIC images.';
       });
       return;
     }
@@ -841,7 +1107,8 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
     final isValid = allowedExt.any((ext) => lowerPath.endsWith(ext));
     if (!isValid) {
       setState(() {
-        _receiptError = 'Unsupported file type. Please capture JPG, PNG, WEBP or HEIC image.';
+        _receiptError =
+            'Unsupported file type. Please capture JPG, PNG, WEBP or HEIC image.';
       });
       return;
     }
@@ -885,7 +1152,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
 
   Future<void> _runReceiptAnalysis(XFile file) async {
     if (!mounted) return;
-    
+
     // Show loading indicator
     showDialog(
       context: context,
@@ -897,9 +1164,10 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
 
     try {
       // Call the new API endpoint for AI classification
-      final url = Uri.parse('${EnvConfig.apiBaseUrl}/api/v1/transactions/test-upload-multiple');
+      final url = Uri.parse(
+          '${EnvConfig.apiBaseUrl}/api/v1/transactions/test-upload-multiple');
       final request = http.MultipartRequest('POST', url);
-      
+
       // Add the image file
       final fileStream = http.ByteStream(file.openRead());
       final length = await file.length();
@@ -915,7 +1183,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
       debugPrint('Sending request to: ${url.toString()}');
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      
+
       debugPrint('Response status: ${response.statusCode}');
       debugPrint('Response body: ${response.body}');
 
@@ -925,7 +1193,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
           final result = responseData['result'];
           final totalAmount = result['total_amount'] as String?;
           final invoiceType = result['invoice_type'] as String?;
-          
+
           if (!mounted) return;
           Navigator.of(context).pop(); // Dismiss loading indicator
 
@@ -935,25 +1203,27 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
               if (totalAmount != null && totalAmount.isNotEmpty) {
                 try {
                   // First, remove all non-numeric characters and spaces
-                  String cleanAmount = totalAmount.replaceAll(RegExp(r'[^0-9,.]'), '');
-                  
+                  String cleanAmount =
+                      totalAmount.replaceAll(RegExp(r'[^0-9,.]'), '');
+
                   // Check if the last comma or dot is a decimal separator
                   int lastComma = cleanAmount.lastIndexOf(',');
                   int lastDot = cleanAmount.lastIndexOf('.');
-                  
+
                   if (lastComma > lastDot) {
                     // Comma is the decimal separator, dot is thousand separator
                     cleanAmount = cleanAmount
-                        .replaceAll('.', '')   // Remove thousand separators
+                        .replaceAll('.', '') // Remove thousand separators
                         .replaceFirst(',', '.'); // Convert decimal comma to dot
                   } else if (lastDot > lastComma) {
                     // Dot is the decimal separator, comma is thousand separator
-                    cleanAmount = cleanAmount.replaceAll(',', ''); // Remove thousand separators
+                    cleanAmount = cleanAmount.replaceAll(
+                        ',', ''); // Remove thousand separators
                   } else if (lastComma == -1 && lastDot == -1) {
                     // No decimal point, just a whole number
                     cleanAmount = cleanAmount;
                   }
-                  
+
                   // Parse to double and format without decimal places if it's a whole number
                   double amount = double.parse(cleanAmount);
                   if (amount == amount.truncate()) {
@@ -961,8 +1231,9 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
                   } else {
                     _amountController.text = amount.toString();
                   }
-                  
-                  debugPrint('Parsed amount: ${_amountController.text} from original: $totalAmount');
+
+                  debugPrint(
+                      'Parsed amount: ${_amountController.text} from original: $totalAmount');
                 } catch (e) {
                   debugPrint('Error parsing amount "$totalAmount": $e');
                   // Fallback: remove all non-numeric characters except the last dot
@@ -980,14 +1251,18 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
                 // Find category that matches invoice_type
                 try {
                   final matchedCategory = _categories.firstWhere(
-                    (cat) => cat.categoryName.toLowerCase() == invoiceType.toLowerCase(),
+                    (cat) =>
+                        cat.categoryName.toLowerCase() ==
+                        invoiceType.toLowerCase(),
                   );
                   _selectedCategory = matchedCategory;
                   _updateTabForCategory(_selectedCategory!);
-                  
+
                   // Show success message
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Đã tự động chọn danh mục: ${matchedCategory.categoryName}')),
+                    SnackBar(
+                        content: Text(
+                            'Đã tự động chọn danh mục: ${matchedCategory.categoryName}')),
                   );
                 } catch (e) {
                   // If no exact match, try to find 'Others' category
@@ -996,7 +1271,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
                       (cat) => cat.categoryName == 'Others',
                     );
                     _updateTabForCategory(_selectedCategory!);
-                    
+
                     // Show invoice type in snackbar
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Loại hóa đơn: $invoiceType')),
@@ -1010,7 +1285,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
                   }
                 }
               }
-              
+
               // Clear any previous errors
               _receiptError = null;
             });
@@ -1022,7 +1297,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
       // If we get here, there was an error
       if (!mounted) return;
       Navigator.of(context).pop(); // Dismiss loading indicator
-      
+
       String errorMessage = 'Không thể xử lý hóa đơn. Vui lòng thử lại.';
       try {
         final errorData = json.decode(response.body);
@@ -1032,9 +1307,9 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
       } catch (e) {
         debugPrint('Error parsing error response: $e');
       }
-      
+
       debugPrint('API Error (${response.statusCode}): $errorMessage');
-      
+
       if (mounted) {
         setState(() {
           _receiptError = errorMessage;
@@ -1057,14 +1332,25 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
       debugPrint('Error processing receipt: $e');
     }
   }
-  
+
   void _showFullImage(int index) {
-    if (_receiptImages.isEmpty || index < 0 || index >= _receiptImages.length) {
-      return;
-    }
-    
+    if (index < 0) return;
     if (!mounted) return;
-    
+
+    Widget imageWidget;
+    if (index < _remoteReceiptUrls.length) {
+      final url = _remoteReceiptUrls[index];
+      imageWidget =
+          Image.network(url, fit: BoxFit.contain, errorBuilder: (_, __, ___) {
+        return const Icon(Icons.broken_image, size: 64);
+      });
+    } else {
+      final localIndex = index - _remoteReceiptUrls.length;
+      if (localIndex < 0 || localIndex >= _receiptImages.length) return;
+      imageWidget = Image.file(File(_receiptImages[localIndex].path),
+          fit: BoxFit.contain);
+    }
+
     showDialog<void>(
       context: context,
       barrierColor: Colors.black.withOpacity(0.9),
@@ -1075,12 +1361,7 @@ result = Transaction.fromJson(response);  // Convert the response to a Transacti
             child: InteractiveViewer(
               minScale: 0.5,
               maxScale: 4.0,
-              child: Center(
-                child: Image.file(
-                  File(_receiptImages[index].path),
-                  fit: BoxFit.contain,
-                ),
-              ),
+              child: Center(child: imageWidget),
             ),
           ),
         );
@@ -1278,7 +1559,7 @@ class _SaveBar extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onAiClassify;
   final bool canSave;
-   final bool canAiClassify;
+  final bool canAiClassify;
   final bool isAiRunning;
 
   const _SaveBar({
@@ -1300,7 +1581,8 @@ class _SaveBar extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton(
-                onPressed: (!canAiClassify || isAiRunning) ? null : onAiClassify,
+                onPressed:
+                    (!canAiClassify || isAiRunning) ? null : onAiClassify,
                 child: isAiRunning
                     ? const SizedBox(
                         height: 16,
@@ -1338,10 +1620,22 @@ class _CalculatorPad extends StatelessWidget {
     // 7   8   9   .
     // 00  0  000  >
     final buttons = [
-      '1', '2', '3', 'C',
-      '4', '5', '6', 'x',
-      '7', '8', '9', '.',
-      '00', '0', '000', '>',
+      '1',
+      '2',
+      '3',
+      'C',
+      '4',
+      '5',
+      '6',
+      'x',
+      '7',
+      '8',
+      '9',
+      '.',
+      '00',
+      '0',
+      '000',
+      '>',
     ];
 
     return Container(
@@ -1368,8 +1662,9 @@ class _CalculatorPad extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
                       isPrimary ? AppTheme.primaryGreen : Colors.white,
-                  foregroundColor:
-                      isPrimary ? Colors.white : (isAction ? AppTheme.primaryGreen : Colors.black87),
+                  foregroundColor: isPrimary
+                      ? Colors.white
+                      : (isAction ? AppTheme.primaryGreen : Colors.black87),
                   elevation: isPrimary ? 2 : 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -1379,7 +1674,8 @@ class _CalculatorPad extends StatelessWidget {
                           : Colors.grey.withOpacity(0.3),
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
                 ),
                 onPressed: () {
                   _onButtonPressed(label);

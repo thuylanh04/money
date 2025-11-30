@@ -593,11 +593,13 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
             (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
 
       // Take top 5
+      if (!mounted) return;
       setState(() {
         _topCategories = sortedCategories.take(5).toList();
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load top spending';
         _isLoading = false;
