@@ -57,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.pie_chart_outline),
-            label: 'Phân tích',
+            label: 'Analysis',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
