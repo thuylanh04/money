@@ -2,219 +2,257 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:money_manage/models/chart_data.dart';
 import 'package:money_manage/services/chart_service.dart';
+// Giả định file AppTheme tồn tại để sử dụng màu sắc
 import 'package:money_manage/theme/app_theme.dart';
+import 'package:intl/intl.dart';
 
-class AnalysisScreen extends StatelessWidget {
+// CHUYỂN TỪ StatelessWidget SANG StatefulWidget
+class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({Key? key}) : super(key: key);
 
   @override
-  Widget build(BuildContext context) {
-    final List<ChartData> chartData = ChartService.getExpenseChartData();
-    final totalExpense = chartData.fold<double>(0, (sum, item) => sum + item.amount);
+  State<AnalysisScreen> createState() => _AnalysisScreenState();
+}
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Phân tích chi tiêu'),
-        centerTitle: true,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSummaryCard(totalExpense),
-            const SizedBox(height: 24),
-            _buildExpenseChart(chartData),
-            const SizedBox(height: 24),
-            _buildExpenseList(chartData),
-          ],
-        ),
-      ),
-    );
+class _AnalysisScreenState extends State<AnalysisScreen> {
+  // Biến trạng thái cho bộ lọc thời gian
+  late List<Map<String, dynamic>> _timeFilters;
+  late Map<String, dynamic> _selectedFilter;
+
+  // Dữ liệu chi tiêu cho tháng được chọn
+  List<ChartData> _chartData = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeTimeFilters();
+    _loadChartData();
   }
 
-  Widget _buildSummaryCard(double totalExpense) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Text(
-              'Tổng chi tiêu tháng này',
-              style: TextStyle(
-                fontSize: 16,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${_formatCurrency(totalExpense)} VND',
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryGreen,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  // Khởi tạo bộ lọc thời gian (12 tháng gần nhất)
+  void _initializeTimeFilters() {
+    final now = DateTime.now();
+
+    // Tạo danh sách 12 tháng từ tháng hiện tại lùi về
+    final tempFilters = List.generate(12, (index) {
+      final date = DateTime(now.year, now.month - index, 1);
+      final monthName = DateFormat('MMM yyyy').format(date);
+      final monthKey = '${date.year}-${date.month.toString().padLeft(2, '0')}';
+      return {
+        'label': monthName,
+        'year': date.year,
+        'month': date.month,
+        'key': monthKey,
+      };
+    });
+
+    // Đảo ngược danh sách (từ cũ nhất đến mới nhất)
+    _timeFilters = tempFilters.reversed.toList();
+
+    // Set tháng hiện tại là mặc định (phần tử cuối cùng)
+    _selectedFilter = _timeFilters.last;
   }
 
-  Widget _buildExpenseChart(List<ChartData> data) {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Chi tiêu theo danh mục',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 220,
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: PieChart(
-                      PieChartData(
-                        sections: _chartSections(data),
-                        sectionsSpace: 2,
-                        centerSpaceRadius: 40,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _buildLegend(data),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildLegend(List<ChartData> data) {
-    return data.map((item) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: Row(
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: _getColorForCategory(item.category),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '${item.category} (${item.percentage.toInt()}%)',
-                style: const TextStyle(fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      );
-    }).toList();
-  }
-
-  Widget _buildExpenseList(List<ChartData> data) {
+  // Widget hiển thị Tổng chi tiêu (Đã loại bỏ Card và Elevation)
+  Widget _buildTotalExpenseCard(double totalAmount) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Chi tiết chi tiêu',
+        // const Text(
+        //   'Tổng chi tiêu tháng này',
+        //   style: TextStyle(
+        //     fontSize: 14,
+        //     color: Colors.grey,
+        //     fontWeight: FontWeight.w500,
+        //   ),
+        // ),
+        const SizedBox(height: 4),
+        Text(
+          '${_formatCurrency(totalAmount)} VND',
           style: TextStyle(
-            fontSize: 16,
+            fontSize: 24,
             fontWeight: FontWeight.bold,
+            // Sử dụng màu chủ đạo của Theme
+            color: Theme.of(context).primaryColor,
           ),
         ),
-        const SizedBox(height: 12),
-        ...data.map((item) => _buildExpenseItem(item)).toList(),
       ],
     );
   }
 
-  Widget _buildExpenseItem(ChartData item) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: _getColorForCategory(item.category).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                item.icon,
-                style: const TextStyle(fontSize: 20),
+  // Tải dữ liệu biểu đồ dựa trên bộ lọc được chọn
+  void _loadChartData() {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final year = _selectedFilter['year'] as int;
+    final month = _selectedFilter['month'] as int;
+
+    // Sử dụng service để lấy dữ liệu đã được lọc
+    _chartData = ChartService.getExpenseChartData(year: year, month: month);
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  // Áp dụng bộ lọc mới và tải lại dữ liệu
+  void _applyFilter(Map<String, dynamic> filter) {
+    // Không tải lại nếu bộ lọc không thay đổi
+    if (_selectedFilter['key'] == filter['key']) return;
+
+    setState(() {
+      _selectedFilter = filter;
+    });
+
+    _loadChartData();
+  }
+
+  // Helper method để định dạng tiền tệ (VD: 1,000,000)
+  String _formatCurrency(double amount) {
+    final formatter = NumberFormat('#,##0', 'vi_VN');
+    return formatter.format(amount);
+  }
+
+  // Helper method để lấy màu cho danh mục (Đã chỉnh màu khớp)
+  Color _getColorForCategory(String category) {
+    // Dùng mã màu Hex/RGB cụ thể để đảm bảo tính nhất quán
+    final colors = {
+      // Màu Xanh Lá (Green) cho Ăn uống
+      'Ăn uống': const Color(0xFF4CAF50),
+      // Màu Xanh Dương (Blue) cho Mua sắm
+      'Mua sắm': const Color(0xFF2196F3),
+      // Màu Cam (Orange) cho Di chuyển
+      'Di chuyển': const Color(0xFFFF9800),
+      // Màu Tím (Purple) cho Giải trí
+      'Giải trí': const Color(0xFF9C27B0),
+      // Màu Xám Xanh (Blue Grey) cho Khác
+      'Khác': const Color(0xFF607D8B),
+    };
+    return colors[category] ?? Colors.grey;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Tính tổng chi tiêu của tháng hiện tại
+    final totalExpense =
+        _chartData.fold<double>(0, (sum, item) => sum + item.amount);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Expense Analysis'),
+        centerTitle: true,
+        // Thanh lọc thời gian ở dưới AppBar
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(60),
+          child: _buildTimeFilterBar(context),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 12),
+
+                  // THẺ TỔNG CHI TIÊU Ở TRÊN CÙNG
+                  _buildTotalExpenseCard(totalExpense),
+
+                  const SizedBox(height: 24),
+
+                  // Hiển thị Biểu đồ hoặc Thông báo rỗng
+                  _chartData.isEmpty
+                      ? Center(
+                          child: Text(
+                            'Không có chi tiêu nào trong ${_selectedFilter['label']}',
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.grey),
+                          ),
+                        )
+                      // BIỂU ĐỒ TRÒN (Không còn tổng tiền ở giữa)
+                      : _buildExpenseChart(_chartData, totalExpense),
+
+                  const SizedBox(height: 24),
+
+                  // Danh sách chi tiết
+                  if (_chartData.isNotEmpty) _buildExpenseList(_chartData),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.category,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+    );
+  }
+
+  // Widget xây dựng thanh lọc thời gian
+  Widget _buildTimeFilterBar(BuildContext context) {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _timeFilters.length,
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        itemBuilder: (context, index) {
+          final filter = _timeFilters[index];
+          final isSelected = _selectedFilter['key'] == filter['key'];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+            child: GestureDetector(
+              onTap: () => _applyFilter(filter),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Theme.of(context).primaryColor
+                      : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Center(
+                  child: Text(
+                    filter['label'],
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey[800],
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '${item.percentage.toInt()}% chi tiêu',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-          Text(
-            '${_formatCurrency(item.amount)} VND',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
+  // Widget xây dựng biểu đồ tròn
+  Widget _buildExpenseChart(List<ChartData> data, double totalAmount) {
+    return Center(
+      child: SizedBox(
+        height: 220,
+        width: 220,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            PieChart(
+              PieChartData(
+                sections: _chartSections(data),
+                sectionsSpace: 2,
+                centerSpaceRadius: 60, // Giữ khoảng trống ở giữa
+                pieTouchData: PieTouchData(enabled: false),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Hàm tạo các lát cắt cho PieChart
   List<PieChartSectionData> _chartSections(List<ChartData> data) {
     return data.map((item) {
       return PieChartSectionData(
@@ -231,21 +269,89 @@ class AnalysisScreen extends StatelessWidget {
     }).toList();
   }
 
-  Color _getColorForCategory(String category) {
-    final colors = {
-      'Ăn uống': const Color(0xFF4CAF50),
-      'Mua sắm': const Color(0xFF2196F3),
-      'Di chuyển': const Color(0xFFFF9800),
-      'Giải trí': const Color(0xFF9C27B0),
-      'Khác': const Color(0xFF607D8B),
-    };
-    return colors[category] ?? Colors.grey;
+  // Widget xây dựng danh sách chi tiết
+  Widget _buildExpenseList(List<ChartData> data) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Chi tiết chi tiêu',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...data.map((item) => _buildExpenseItem(item)).toList(),
+      ],
+    );
   }
 
-  String _formatCurrency(double amount) {
-    return amount.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (match) => '${match[1]},',
-        );
+  // Widget xây dựng từng mục chi tiêu trong danh sách
+  Widget _buildExpenseItem(ChartData item) {
+    // GIẢ ĐỊNH: Số lượng giao dịch là hằng số hoặc được lấy từ service
+    const int transactionCount = 7;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Icon
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _getColorForCategory(item.category).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                item.icon,
+                style: TextStyle(
+                  fontSize: 22,
+                  color: _getColorForCategory(item.category),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          // Danh mục và số giao dịch
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.category,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$transactionCount Transactions',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey, // Giả định AppTheme.textSecondary
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Số tiền chi tiêu
+          Text(
+            '-${_formatCurrency(item.amount)} VND',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Icon(Icons.arrow_forward_ios_rounded,
+              size: 14, color: Colors.grey),
+        ],
+      ),
+    );
   }
 }

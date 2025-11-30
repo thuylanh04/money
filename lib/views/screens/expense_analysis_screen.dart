@@ -58,7 +58,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Phân tích chi tiêu'),
+        title: const Text('Expense Analysis'),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
