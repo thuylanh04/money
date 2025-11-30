@@ -5,6 +5,19 @@ import 'package:money_manage/models/transaction.dart';
 import 'package:money_manage/services/transaction_service.dart';
 import 'package:money_manage/theme/app_theme.dart';
 
+// Define custom colors for the app
+class AppColors {
+  static const Color errorLight = Color(0xFFFFCDD2); // Light red for error background
+  static const Color successLight = Color(0xFFC8E6C9); // Light green for success background
+  static const Color success = Color(0xFF4CAF50); // Green for success
+  static const Color primary = Color(0xFF00C853); // Primary green color
+  
+  // Helper method to create color with opacity
+  static Color withOpacity(Color color, double opacity) {
+    return color.withOpacity(opacity);
+  }
+}
+
 class SpendingAnalysisScreen extends StatefulWidget {
   const SpendingAnalysisScreen({super.key});
 
@@ -24,10 +37,15 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   }
 
   Future<void> _loadTransactions() async {
+    final startDate = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final endDate = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
+    
     try {
-      final transactions = await TransactionService.getUserTransactions();
       setState(() {
-        _transactionsFuture = Future.value(transactions);
+        _transactionsFuture = TransactionService.instance.getTransactionsForAnalysis(
+          startDate: startDate,
+          endDate: endDate,
+        );
       });
     } catch (e) {
       setState(() {
@@ -192,7 +210,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            color: isSelected ? AppColors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
@@ -212,7 +230,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   Widget _buildTotalAmountCard(double totalAmount) {
     return Card(
       elevation: 0,
-      color: _selectedTab == 'Chi tiêu' ? AppTheme.errorLight : AppTheme.successLight,
+      color: _selectedTab == 'Chi tiêu' ? AppColors.errorLight : AppColors.successLight,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -294,7 +312,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                      color: AppColors.primary,
                     ),
                   ),
                 ],
@@ -361,7 +379,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                 ? [] 
                 : [
                     Shadow(
-                      color: Colors.black.withOpacity(0.5), 
+                      color: AppColors.withOpacity(Colors.black, 0.5), 
                       blurRadius: 2, 
                       offset: const Offset(1, 1)
                     )
@@ -485,8 +503,8 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
               color: _selectedTab == 'Chi tiêu' 
-                  ? AppTheme.errorLight 
-                  : AppTheme.successLight,
+                  ? AppColors.errorLight 
+                  : AppColors.successLight,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -547,7 +565,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: AppColors.withOpacity(Colors.grey, 0.1),
             spreadRadius: 1,
             blurRadius: 4,
             offset: const Offset(0, 2),
@@ -561,15 +579,15 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             height: 40,
             decoration: BoxDecoration(
               color: _selectedTab == 'Chi tiêu' 
-                  ? AppTheme.errorLight 
-                  : AppTheme.successLight,
+                  ? AppColors.errorLight 
+                  : AppColors.successLight,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               _getCategoryIcon(category),
               color: _selectedTab == 'Chi tiêu' 
-                  ? AppTheme.error 
-                  : AppTheme.success,
+                  ? Colors.red // Using Flutter's built-in red for errors
+                  : AppColors.success,
             ),
           ),
           const SizedBox(width: 12),
@@ -591,7 +609,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                   valueColor: AlwaysStoppedAnimation<Color>(
                     _selectedTab == 'Chi tiêu' 
                         ? AppTheme.error 
-                        : AppTheme.success,
+                        : AppColors.success,
                   ),
                   minHeight: 4,
                   borderRadius: BorderRadius.circular(2),

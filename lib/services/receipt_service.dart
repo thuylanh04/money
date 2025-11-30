@@ -27,14 +27,14 @@ class ReceiptData {
 
   factory ReceiptData.fromJson(Map<String, dynamic> json) {
     return ReceiptData(
-      amount: json['total_amount_parsed'] != null 
-          ? (json['total_amount_parsed'] as num).toDouble() 
+      amount: json['total_amount_parsed'] != null
+          ? (json['total_amount_parsed'] as num).toDouble()
           : (json['amount'] as num?)?.toDouble() ?? 0.0,
       categoryId: json['categoryIdFE'],
       note: json['note'],
       totalAmount: json['total_amount'],
       invoiceType: json['invoice_type'],
-      imageUrls: json['image_urls'] != null 
+      imageUrls: json['image_urls'] != null
           ? List<String>.from(json['image_urls'])
           : null,
     );
@@ -50,7 +50,7 @@ class MockReceiptService implements ReceiptService {
   Future<ReceiptData> processReceipt(XFile file) async {
     // Simulate API delay
     await Future.delayed(const Duration(seconds: 2));
-    
+
     // Mock data - you can customize these values
     return ReceiptData(
       amount: 125000,
@@ -61,14 +61,14 @@ class MockReceiptService implements ReceiptService {
 }
 
 class ApiReceiptService implements ReceiptService {
-  static const String _baseUrl = 'https://830e8519fa0b.ngrok-free.app/api/v1';
-  
+  static const String _baseUrl = 'https://2cd1c0bd7cdd.ngrok-free.app/api/v1';
+
   @override
   Future<ReceiptData> processReceipt(XFile file) async {
     try {
       final uri = Uri.parse('$_baseUrl/transactions/test-upload-multiple');
       final request = http.MultipartRequest('POST', uri);
-      
+
       // Add the image file
       request.files.add(await http.MultipartFile.fromPath(
         'images',
@@ -79,10 +79,10 @@ class ApiReceiptService implements ReceiptService {
       // Add headers
       request.headers['Content-Type'] = 'multipart/form-data';
       request.headers['ngrok-skip-browser-warning'] = 'true';
-      
+
       final response = await request.send();
       final responseData = await response.stream.bytesToString();
-      
+
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(responseData);
         if (jsonData['code'] == 1000) {

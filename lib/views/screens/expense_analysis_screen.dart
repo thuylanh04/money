@@ -21,11 +21,17 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
   }
 
   Future<void> _loadTransactions() {
-    setState(() {
-      _transactionsFuture = TransactionService.getTransactionsForAnalysis();
-    });
-    return _transactionsFuture;
-  }
+  final startDate = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+  final endDate = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
+  
+  setState(() {
+    _transactionsFuture = TransactionService.instance.getTransactionsForAnalysis(
+      startDate: startDate,
+      endDate: endDate,
+    );
+  });
+  return _transactionsFuture;
+}
 
   double _getTotalExpenses(List<Transaction> transactions) {
     return transactions
@@ -41,7 +47,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
 
   Map<String, double> _getCategoryTotals(List<Transaction> transactions) {
     final Map<String, double> categoryTotals = {};
-    
+
     for (var txn in transactions.where((t) => t.groupType == 'expense')) {
       final categoryName = txn.categoryName ?? 'Khác';
       categoryTotals.update(
@@ -50,7 +56,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
         ifAbsent: () => txn.amount,
       );
     }
-    
+
     return categoryTotals;
   }
 
@@ -128,7 +134,10 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
 
   Widget _buildMonthSelector() {
     final monthName = DateFormat('MMMM yyyy', 'vi_VN').format(_selectedMonth);
-    
+    final now = DateTime.now();
+    final isCurrentMonth =
+        _selectedMonth.year == now.year && _selectedMonth.month == now.month;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -136,7 +145,8 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
           icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
           onPressed: () {
             setState(() {
-              _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
+              _selectedMonth =
+                  DateTime(_selectedMonth.year, _selectedMonth.month - 1);
               _loadTransactions();
             });
           },
@@ -150,9 +160,22 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-          onPressed: _selectedMonth.isAfter(DateTime.now().subtract(const Duration(days: 30)))
+          onPressed: isCurrentMonth
               ? null
-  Widget _buildSummaryCard(double totalExpense, double totalIncome, double savings) {
+              : () {
+                  setState(() {
+                    _selectedMonth =
+                        DateTime(_selectedMonth.year, _selectedMonth.month + 1);
+                    _loadTransactions();
+                  });
+                },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard(
+      double totalExpense, double totalIncome, double savings) {
     return Card(
       elevation: 0,
       color: Colors.blue[50],
@@ -185,8 +208,8 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
               children: [
                 _buildStatItem('Tổng thu nhập', totalIncome, Colors.green),
                 _buildStatItem(
-                  'Tiết kiệm', 
-                  savings > 0 ? savings : 0, 
+                  'Tiết kiệm',
+                  savings > 0 ? savings : 0,
                   savings > 0 ? Colors.blue : Colors.red,
                 ),
               ],
@@ -221,11 +244,12 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
     );
   }
 
-  Widget _buildExpenseByCategory(Map<String, double> categoryTotals, double totalExpense) {
+  Widget _buildExpenseByCategory(
+      Map<String, double> categoryTotals, double totalExpense) {
     if (categoryTotals.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -237,11 +261,13 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ...categoryTotals.entries.map((entry) => _buildCategoryItem(
-          entry.key,
-          entry.value,
-          totalExpense,
-        )).toList(),
+        ...categoryTotals.entries
+            .map((entry) => _buildCategoryItem(
+                  entry.key,
+                  entry.value,
+                  totalExpense,
+                ))
+            .toList(),
       ],
     );
   }
@@ -250,7 +276,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
     final percentage = totalExpense > 0 ? (amount / totalExpense) : 0.0;
     final icon = _getCategoryIcon(name);
     final color = _getCategoryColor(name);
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
@@ -325,7 +351,9 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ...displayTransactions.map((txn) => _buildTransactionItem(txn)).toList(),
+        ...displayTransactions
+            .map((txn) => _buildTransactionItem(txn))
+            .toList(),
       ],
     );
   }
@@ -334,7 +362,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
     final isExpense = txn.groupType == 'expense';
     final categoryName = txn.categoryName ?? 'Khác';
     final note = txn.note?.isNotEmpty == true ? txn.note! : 'Không có mô tả';
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -383,16 +411,21 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
       return Icons.restaurant;
     } else if (lowerCategory.contains('mua') || lowerCategory.contains('sắm')) {
       return Icons.shopping_bag;
-    } else if (lowerCategory.contains('điện') || lowerCategory.contains('nước') || 
-               lowerCategory.contains('internet') || lowerCategory.contains('hóa đơn')) {
+    } else if (lowerCategory.contains('điện') ||
+        lowerCategory.contains('nước') ||
+        lowerCategory.contains('internet') ||
+        lowerCategory.contains('hóa đơn')) {
       return Icons.receipt;
-    } else if (lowerCategory.contains('di chuyển') || lowerCategory.contains('xăng') || 
-               lowerCategory.contains('xe')) {
+    } else if (lowerCategory.contains('di chuyển') ||
+        lowerCategory.contains('xăng') ||
+        lowerCategory.contains('xe')) {
       return Icons.directions_car;
-    } else if (lowerCategory.contains('giải trí') || lowerCategory.contains('xem phim') || 
-               lowerCategory.contains('game')) {
+    } else if (lowerCategory.contains('giải trí') ||
+        lowerCategory.contains('xem phim') ||
+        lowerCategory.contains('game')) {
       return Icons.movie;
-    } else if (lowerCategory.contains('lương') || lowerCategory.contains('thu nhập')) {
+    } else if (lowerCategory.contains('lương') ||
+        lowerCategory.contains('thu nhập')) {
       return Icons.account_balance_wallet;
     } else {
       return Icons.category;
@@ -405,16 +438,21 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
       return Colors.red;
     } else if (lowerCategory.contains('mua') || lowerCategory.contains('sắm')) {
       return Colors.blue;
-    } else if (lowerCategory.contains('điện') || lowerCategory.contains('nước') || 
-               lowerCategory.contains('internet') || lowerCategory.contains('hóa đơn')) {
+    } else if (lowerCategory.contains('điện') ||
+        lowerCategory.contains('nước') ||
+        lowerCategory.contains('internet') ||
+        lowerCategory.contains('hóa đơn')) {
       return Colors.orange;
-    } else if (lowerCategory.contains('di chuyển') || lowerCategory.contains('xăng') || 
-               lowerCategory.contains('xe')) {
+    } else if (lowerCategory.contains('di chuyển') ||
+        lowerCategory.contains('xăng') ||
+        lowerCategory.contains('xe')) {
       return Colors.green;
-    } else if (lowerCategory.contains('giải trí') || lowerCategory.contains('xem phim') || 
-               lowerCategory.contains('game')) {
+    } else if (lowerCategory.contains('giải trí') ||
+        lowerCategory.contains('xem phim') ||
+        lowerCategory.contains('game')) {
       return Colors.purple;
-    } else if (lowerCategory.contains('lương') || lowerCategory.contains('thu nhập')) {
+    } else if (lowerCategory.contains('lương') ||
+        lowerCategory.contains('thu nhập')) {
       return Colors.teal;
     } else {
       return Colors.grey;
