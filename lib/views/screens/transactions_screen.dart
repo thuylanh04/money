@@ -5,7 +5,6 @@ import 'package:money_manage/services/transaction_service.dart';
 import 'transaction_detail_screen.dart';
 import 'package:intl/intl.dart';
 import 'package:expandable/expandable.dart';
-import 'package:flutter/material.dart';
 
 class TransactionsScreen extends StatefulWidget {
   static const String routeName = '/transactions';
