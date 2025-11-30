@@ -25,7 +25,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
 
   Future<void> _loadTransactions() async {
     try {
-      final transactions = await TransactionService.getUserTransactions();
+      final transactions = await TransactionService().getUserTransactions();
       setState(() {
         _transactionsFuture = Future.value(transactions);
       });
@@ -38,28 +38,34 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
 
   Map<String, double> _getCategoryTotals(List<Transaction> transactions) {
     final Map<String, double> categoryTotals = {};
-    
-    for (var txn in transactions.where((t) => 
+
+    for (var txn in transactions.where((t) =>
         t.groupType == _selectedTab.toLowerCase() &&
         t.date.year == _selectedMonth.year &&
         t.date.month == _selectedMonth.month)) {
       final categoryName = txn.categoryName ?? 'Khác';
       categoryTotals.update(
         categoryName,
-        (value) => value + txn.amount,  // Removed .abs() as backend handles the sign
-        ifAbsent: () => txn.amount,     // Removed .abs() as backend handles the sign
+        (value) =>
+            value + txn.amount, // Removed .abs() as backend handles the sign
+        ifAbsent: () =>
+            txn.amount, // Removed .abs() as backend handles the sign
       );
     }
-    
+
     return categoryTotals;
   }
 
   double _getTotalAmount(List<Transaction> transactions) {
     return transactions
-        .where((t) => t.groupType == _selectedTab.toLowerCase() &&
+        .where((t) =>
+            t.groupType == _selectedTab.toLowerCase() &&
             t.date.year == _selectedMonth.year &&
             t.date.month == _selectedMonth.month)
-        .fold(0.0, (sum, txn) => sum + txn.amount);  // Removed .abs() as backend handles the sign
+        .fold(
+            0.0,
+            (sum, txn) =>
+                sum + txn.amount); // Removed .abs() as backend handles the sign
   }
 
   @override
@@ -78,7 +84,9 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          } else if (snapshot.hasError ||
+              !snapshot.hasData ||
+              snapshot.data!.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -124,7 +132,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
 
   Widget _buildMonthSelector() {
     final monthName = DateFormat('MMMM yyyy', 'vi_VN').format(_selectedMonth);
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       decoration: BoxDecoration(
@@ -138,7 +146,8 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             icon: const Icon(Icons.arrow_back_ios_rounded, size: 16),
             onPressed: () {
               setState(() {
-                _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
+                _selectedMonth =
+                    DateTime(_selectedMonth.year, _selectedMonth.month - 1);
                 _loadTransactions();
               });
             },
@@ -152,12 +161,15 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
-            onPressed: _selectedMonth.month >= DateTime.now().month ? null : () {
-              setState(() {
-                _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
-                _loadTransactions();
-              });
-            },
+            onPressed: _selectedMonth.month >= DateTime.now().month
+                ? null
+                : () {
+                    setState(() {
+                      _selectedMonth = DateTime(
+                          _selectedMonth.year, _selectedMonth.month + 1);
+                      _loadTransactions();
+                    });
+                  },
           ),
         ],
       ),
@@ -192,7 +204,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            color: isSelected ? AppTheme.primaryGreen : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
@@ -212,7 +224,9 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   Widget _buildTotalAmountCard(double totalAmount) {
     return Card(
       elevation: 0,
-      color: _selectedTab == 'Chi tiêu' ? AppTheme.errorLight : AppTheme.successLight,
+      color: _selectedTab == 'Chi tiêu'
+          ? AppTheme.error.withOpacity(0.08)
+          : AppTheme.primaryGreen.withOpacity(0.08),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -242,7 +256,8 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
     );
   }
 
-  Widget _buildPieChart(Map<String, double> categoryTotals, double totalAmount) {
+  Widget _buildPieChart(
+      Map<String, double> categoryTotals, double totalAmount) {
     if (categoryTotals.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -294,7 +309,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                      color: AppTheme.primaryGreen,
                     ),
                   ),
                 ],
@@ -343,10 +358,10 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
       final percentage = (entry.value / totalAmount * 100);
       final showLabel = percentage >= 3; // Giảm ngưỡng hiển thị phần trăm
       final color = colors[colorIndex % colors.length];
-      
+
       // Tự động điều chỉnh màu chữ dựa trên độ sáng của màu nền
       final isLightColor = color.computeLuminance() > 0.5;
-      
+
       sections.add(
         PieChartSectionData(
           color: color,
@@ -357,14 +372,13 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             fontSize: percentage > 10 ? 12 : 10,
             fontWeight: FontWeight.bold,
             color: isLightColor ? Colors.black87 : Colors.white,
-            shadows: isLightColor 
-                ? [] 
+            shadows: isLightColor
+                ? []
                 : [
                     Shadow(
-                      color: Colors.black.withOpacity(0.5), 
-                      blurRadius: 2, 
-                      offset: const Offset(1, 1)
-                    )
+                        color: Colors.black.withOpacity(0.5),
+                        blurRadius: 2,
+                        offset: const Offset(1, 1))
                   ],
           ),
           borderSide: const BorderSide(color: Colors.white, width: 2),
@@ -380,7 +394,8 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   Widget _buildLegend(Map<String, double> categoryTotals) {
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final total = categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
+    final total =
+        categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
     final colors = _selectedTab == 'Chi tiêu'
         ? [
             const Color(0xFF4CAF50), // Xanh lá cây
@@ -424,7 +439,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
               final entry = sortedCategories[index];
               final percentage = (entry.value / total * 100);
               final color = colors[index % colors.length];
-              
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 child: Row(
@@ -484,9 +499,9 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
-              color: _selectedTab == 'Chi tiêu' 
-                  ? AppTheme.errorLight 
-                  : AppTheme.successLight,
+              color: _selectedTab == 'Chi tiêu'
+                  ? AppTheme.error.withOpacity(0.08)
+                  : AppTheme.primaryGreen.withOpacity(0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -514,7 +529,8 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
     );
   }
 
-  Widget _buildCategoryList(List<MapEntry<String, double>> categories, double totalAmount) {
+  Widget _buildCategoryList(
+      List<MapEntry<String, double>> categories, double totalAmount) {
     if (categories.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -560,16 +576,16 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: _selectedTab == 'Chi tiêu' 
-                  ? AppTheme.errorLight 
-                  : AppTheme.successLight,
+              color: _selectedTab == 'Chi tiêu'
+                  ? AppTheme.error.withOpacity(0.08)
+                  : AppTheme.primaryGreen.withOpacity(0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               _getCategoryIcon(category),
-              color: _selectedTab == 'Chi tiêu' 
-                  ? AppTheme.error 
-                  : AppTheme.success,
+              color: _selectedTab == 'Chi tiêu'
+                  ? AppTheme.error
+                  : AppTheme.primaryGreen,
             ),
           ),
           const SizedBox(width: 12),
@@ -585,16 +601,18 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                LinearProgressIndicator(
-                  value: percentage / 100,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    _selectedTab == 'Chi tiêu' 
-                        ? AppTheme.error 
-                        : AppTheme.success,
-                  ),
-                  minHeight: 4,
+                ClipRRect(
                   borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: percentage / 100,
+                    backgroundColor: Colors.grey[200],
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _selectedTab == 'Chi tiêu'
+                          ? AppTheme.error
+                          : AppTheme.primaryGreen,
+                    ),
+                    minHeight: 4,
+                  ),
                 ),
               ],
             ),

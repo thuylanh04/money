@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:path/path.dart' as path;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -42,7 +41,8 @@ class TransactionDetailScreen extends StatefulWidget {
   }
 
   @override
-  State<TransactionDetailScreen> createState() => _TransactionDetailScreenState();
+  State<TransactionDetailScreen> createState() =>
+      _TransactionDetailScreenState();
 }
 
 class _TransactionDetailScreenState extends State<TransactionDetailScreen>
@@ -54,18 +54,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   bool _showCalculator = false;
   final ImagePicker _picker = ImagePicker();
   final List<XFile> _receiptImages = <XFile>[];
-  File? _selectedImage;
   String? _receiptError;
   final ReceiptRepository _receiptRepository = ReceiptRepository();
   final GroupService _groupService = GroupService(ApiClient());
   final WalletService _walletService = WalletService(ApiClient());
-  
+
   // Wallet related state
   List<Wallet> _wallets = [];
   Wallet? _selectedWallet;
   bool _isLoadingWallets = false;
   String? _walletError;
-  
+
   // Categories and AI state
   List<CategoryFE> _categories = [];
   bool _isAiRunning = false;
@@ -80,33 +79,59 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   CategoryFE? _selectedCategory;
 
   // Helper method to determine if a transaction is income
+  // Now we'll check the group type instead of amount sign
   bool _isIncome(Transaction transaction) {
-    return transaction.amount >= 0;
+    return transaction.groupType?.toLowerCase() == 'income';
   }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(_handleTabChanged);
-    _loadGroups();
+    _tabController = TabController(length: 3, vsync: this, initialIndex: 0);
     _fetchWallets();
-    
-    // Initialize transaction data
+    _loadCategories();
+
+    // Pre-fill form if editing existing transaction
     if (widget.transaction != null) {
-      _amountController.text = widget.transaction!.amount.abs().toString();
-      _noteController.text = widget.transaction?.note ?? '';
-      _selectedDate = widget.transaction?.date ?? DateTime.now();
-      
-      // Load image if exists
-      if (widget.transaction?.image != null && widget.transaction!.image!.isNotEmpty) {
-        _selectedImage = File(widget.transaction!.image!);
+      final transaction = widget.transaction!;
+      _amountController.text = transaction.amount.toString();
+      _noteController.text = transaction.note ?? '';
+      _selectedDate = transaction.date;
+
+      // Set the transaction type tab (income/expense)
+      final tabIndex = _isIncome(transaction) ? 0 : 1;
+      _tabController.animateTo(tabIndex);
+
+      // Load category if available
+      if (transaction.categoryIdFE != null) {
+        try {
+          final category = _categories.firstWhere(
+            (c) => c.idFE == transaction.categoryIdFE,
+          );
+          _selectedCategory = category;
+        } catch (e) {
+          _selectedCategory = CategoryFE(
+            idFE: transaction.categoryIdFE!,
+            categoryName: transaction.categoryName ?? 'Unknown',
+            groupIdFE: '',
+          );
+        }
+      }
+
+      // Load wallet if available
+      if (transaction.walletIdFE != null) {
+        _selectedWallet = Wallet(
+          idFE: transaction.walletIdFE!,
+          walletName: transaction.walletName ?? 'Unknown',
+        );
       }
     }
     _tabController.addListener(_handleTabChanged);
+    _loadGroups();
+    _fetchWallets();
     _loadCategories();
   }
-  
+
   Future<void> _loadCategories() async {
     try {
       final categoryService = CategoryService(ApiClient());
@@ -133,13 +158,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     _noteController.dispose();
     super.dispose();
   }
-  
-  
+
   Future<void> _runAiClassification() async {
-    if (_selectedImage == null) {
+    if (_receiptImages.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng đính kèm ít nhất một ảnh hóa đơn.')),
+          const SnackBar(
+              content: Text('Vui lòng đính kèm ít nhất một ảnh hóa đơn.')),
         );
       }
       return;
@@ -152,7 +177,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
 
     try {
-      await _runReceiptAnalysis(_selectedImage!);
+      await _runReceiptAnalysis(_receiptImages.first);
 
       if (mounted) {
         setState(() {
@@ -163,7 +188,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       debugPrint('AI classification error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể phân tích hóa đơn. Vui lòng thử lại.')),
+          const SnackBar(
+              content: Text('Không thể phân tích hóa đơn. Vui lòng thử lại.')),
         );
       }
     } finally {
@@ -175,6 +201,77 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+  AppBar _buildAppBar() {
+    return AppBar(
+      title: Text(widget.transaction == null
+          ? 'Add Transaction'
+          : 'Transaction Details'),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      actions: widget.transaction != null
+          ? [
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: _showDeleteConfirmation,
+              ),
+            ]
+          : null,
+    );
+  }
+
+  Future<void> _showDeleteConfirmation() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content:
+            const Text('Are you sure you want to delete this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteTransaction();
+    }
+  }
+
+  Future<void> _deleteTransaction() async {
+    if (widget.transaction == null) return;
+
+    try {
+      final transactionService = TransactionService();
+      final success =
+          await transactionService.deleteTransaction(widget.transaction!.idFE);
+
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transaction deleted successfully')),
+        );
+        if (mounted) {
+          Navigator.of(context).pop(true); // Return true to indicate deletion
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete transaction: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
@@ -182,30 +279,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     final horizontalPadding = isTablet ? media.size.width * 0.08 : 16.0;
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(widget.transaction != null ? 'Edit Transaction' : 'Add Transaction'),
-        centerTitle: true,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.primaryGreen,
-          labelColor: AppTheme.primaryGreen,
-          unselectedLabelColor: AppTheme.textSecondary,
-          tabs: [
-            Tab(text: _expenseLabel),
-            Tab(text: _incomeLabel),
-            Tab(text: _debtLabel),
-          ],
-        ),
-      ),
+      appBar: _buildAppBar(),
       body: Column(
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 16),
+              padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding, vertical: 16),
               child: Column(
                 children: [
                   _buildWalletSelection(),
@@ -222,7 +302,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   _RowItem(
                     leading: const Icon(Icons.category_outlined),
                     title: _selectedCategory?.categoryName ?? 'Select category',
-                    subtitle: _selectedCategory == null ? 'Tap to choose' : null,
+                    subtitle:
+                        _selectedCategory == null ? 'Tap to choose' : null,
                     showChevron: true,
                     onTap: () async {
                       final result = await Navigator.of(context).pushNamed(
@@ -258,7 +339,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                               child: const Text('Cancel'),
                             ),
                             TextButton(
-                              onPressed: () => Navigator.pop(context, _noteController.text),
+                              onPressed: () =>
+                                  Navigator.pop(context, _noteController.text),
                               child: const Text('Save'),
                             ),
                           ],
@@ -272,13 +354,16 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                     },
                     child: _RowItem(
                       leading: const Icon(Icons.notes_outlined),
-                      title: _noteController.text.isNotEmpty ? _noteController.text : 'Write note',
-                      subtitle: _noteController.text.isEmpty ? 'Optional' : null,
+                      title: _noteController.text.isNotEmpty
+                          ? _noteController.text
+                          : 'Write note',
+                      subtitle:
+                          _noteController.text.isEmpty ? 'Optional' : null,
                       showChevron: true,
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _buildImagePicker(),
+                  _buildReceiptRow(context),
                   const SizedBox(height: 12),
                   _RowItem(
                     leading: const Icon(Icons.calendar_today_outlined),
@@ -358,7 +443,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   }
 
   bool get _canAiClassify {
-    return _selectedImage != null && !_isAiRunning;
+    return _receiptImages.isNotEmpty && !_isAiRunning;
   }
 
   Future<void> _loadGroups() async {
@@ -387,7 +472,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
 
   Future<void> _fetchWallets() async {
     if (_isLoadingWallets) return;
-    
+
     setState(() {
       _isLoadingWallets = true;
       _walletError = null;
@@ -431,8 +516,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           ),
         ),
         const SizedBox(height: 8),
-        if (_isLoadingWallets)
-          const Center(child: CircularProgressIndicator()),
+        if (_isLoadingWallets) const Center(child: CircularProgressIndicator()),
         if (_walletError != null)
           Text(
             _walletError!,
@@ -448,7 +532,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             items: _wallets.map((wallet) {
               return DropdownMenuItem<Wallet>(
@@ -470,9 +555,6 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
 
   void _handleTabChanged() {
     if (!_tabController.indexIsChanging && _selectedCategory != null) {
-      // If user switches tab manually to a type that does not match
-      // the currently selected category's group, clear the selection
-      // to avoid inconsistent state.
       final gid = _selectedCategory!.groupIdFE;
       int? expectedIndex;
       if (_expenseGroupIdFE != null && gid == _expenseGroupIdFE) {
@@ -505,127 +587,85 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   }
 
   Future<void> _handleSave() async {
-    try {
-      await _saveTransaction();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: ${e.toString()}')),
-        );
-      }
-    }
-  }
-
-  Future<Transaction> _saveTransaction() async {
-    // Validate required fields
     if (_amountController.text.isEmpty) {
       if (mounted) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vui lòng nhập số tiền')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng nhập số tiền')),
+        );
       }
-      throw Exception('Amount is required');
+      return;
     }
 
     if (_selectedCategory == null) {
       if (mounted) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vui lòng chọn danh mục')),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng chọn danh mục')),
+        );
       }
-      throw Exception('Category is required');
+      return;
     }
 
     if (_selectedWallet == null) {
       if (mounted) {
-        if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vui lòng chọn ví')),
+        );
+      }
+      return;
+    }
+
+    final amount = double.tryParse(
+            _amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ??
+        0.0;
+    final finalAmount = amount.abs();
+
+    try {
+      Transaction? result;
+
+      if (widget.transaction != null) {
+        final transactionService = TransactionService();
+        final response = await transactionService.updateTransaction(
+          transactionId: widget.transaction!.idFE,
+          amount: finalAmount,
+          categoryIdFE: _selectedCategory!.idFE,
+          note: _noteController.text,
+          date: _selectedDate,
+          walletIdFE: _selectedWallet!.idFE,
+        );
+        result = response;
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Vui lòng chọn ví')),
+            const SnackBar(content: Text('Cập nhật giao dịch thành công')),
+          );
+        }
+      } else {
+        final transactionService = TransactionService();
+        final response = await transactionService.createTransaction(
+          amount: finalAmount,
+          date: _selectedDate.toIso8601String(),
+          categoryIdFE: _selectedCategory!.idFE,
+          walletIdFE: _selectedWallet!.idFE,
+          note: _noteController.text.isNotEmpty ? _noteController.text : null,
+        );
+        result = Transaction.fromJson(response);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Thêm giao dịch thành công')),
           );
         }
       }
-      throw Exception('Wallet is required');
-    }
 
-    String? imageUrl;
-    if (_selectedImage != null) {
-      try {
-        // Show loading indicator
-        final navigator = Navigator.of(context);
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-
-        // Upload image
-        imageUrl = await _uploadImage(_selectedImage!);
-        
-        // Close loading indicator
-        if (context.mounted) {
-          navigator.pop();
-        }
-      } catch (e) {
-        if (mounted && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Lỗi khi tải lên ảnh')),
-          );
-        }
-        rethrow;
+      if (mounted) {
+        Navigator.of(context).pop(result);
       }
-    }
-
-    final amount = double.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ?? 0.0;
-    final isIncome = _tabController.index == 1; // Index 1 is Income tab
-    final finalAmount = isIncome ? amount.abs() : -amount.abs();
-
-    Transaction? result;
-    
-    if (widget.transaction != null) {
-      // Update existing transaction
-      final response = await TransactionService.updateTransaction(
-        transactionId: widget.transaction!.idFE,
-        amount: finalAmount,
-        categoryIdFE: _selectedCategory!.idFE,
-        note: _noteController.text,
-        date: _selectedDate,
-        walletIdFE: _selectedWallet!.idFE,
-        imageUrl: imageUrl,
-      );
-      result = response;
-      if (mounted && context.mounted) {
+    } catch (e) {
+      debugPrint('Error saving transaction: $e');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cập nhật giao dịch thành công')),
-        );
-      }
-    } else {
-      // Create new transaction
-      final response = await TransactionService.createTransaction(
-        amount: finalAmount,
-        date: _selectedDate.toIso8601String(),
-        categoryIdFE: _selectedCategory!.idFE,
-        walletIdFE: _selectedWallet!.idFE,
-        note: _noteController.text.isNotEmpty ? _noteController.text : null,
-        image: imageUrl,
-      );
-      result = Transaction.fromJson(response);
-      if (mounted && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Thêm giao dịch thành công')),
+          const SnackBar(content: Text('Đã xảy ra lỗi. Vui lòng thử lại sau.')),
         );
       }
     }
-
-    if (mounted && context.mounted) {
-      Navigator.of(context).pop(result); // Return the created/updated transaction
-    }
-    return result!;
   }
 
   void _showAddAccountDialog(BuildContext context) {
@@ -634,7 +674,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       builder: (context) {
         return AlertDialog(
           title: const Text('Add bank account'),
-          content: const Text('This is a placeholder for adding a bank account.'),
+          content:
+              const Text('This is a placeholder for adding a bank account.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -647,7 +688,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   }
 
   String _formatDate(DateTime date) {
-    const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const weekdays = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
     final weekday = weekdays[date.weekday - 1];
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
@@ -655,40 +704,99 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     return '$weekday, $day/$month/$year';
   }
 
-  Widget _buildImagePicker() {
+  Widget _buildReceiptRow(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Hình ảnh giao dịch',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            ElevatedButton.icon(
-              onPressed: _pickImage,
-              icon: const Icon(Icons.photo_library),
-              label: const Text('Chọn ảnh'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
+        InkWell(
+          onTap: () => _showReceiptSourceSheet(context),
+          child: Row(
+            children: [
+              const Icon(Icons.image_outlined),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Attach receipt',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _receiptImages.isEmpty
+                          ? 'JPG, PNG, WEBP, HEIC'
+                          : '${_receiptImages.length} file(s) selected',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            ElevatedButton.icon(
-              onPressed: _captureImage,
-              icon: const Icon(Icons.camera_alt),
-              label: const Text('Chụp ảnh'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-        if (_receiptError != null) ...[
+        if (_receiptImages.isNotEmpty) ...[
           const SizedBox(height: 8),
+          SizedBox(
+            height: 60,
+            child: ListView.separated(
+              shrinkWrap: true,
+              scrollDirection: Axis.horizontal,
+              itemCount: _receiptImages.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final file = _receiptImages[index];
+                return GestureDetector(
+                  onTap: () => _showFullImage(index),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(file.path),
+                          width: 60,
+                          height: 60,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _receiptImages.removeAt(index);
+                            });
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+        if (_receiptError != null) ...[
+          const SizedBox(height: 4),
           Text(
             _receiptError!,
             style: const TextStyle(
@@ -697,102 +805,99 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
             ),
           ),
         ],
-        if (_selectedImage != null) ...[
-          const SizedBox(height: 8),
-          _buildImagePreview(),
-        ],
       ],
     );
   }
 
-  Widget _buildImagePreview() {
-    if (_selectedImage == null) return const SizedBox.shrink();
-    
-    final isNetworkImage = _selectedImage!.path.startsWith('http');
-    
-    return Container(
-      width: 200,
-      height: 200,
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: isNetworkImage
-            ? Image.network(
-                _selectedImage!.path,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Center(
-                    child: CircularProgressIndicator(
-                      value: loadingProgress.expectedTotalBytes != null
-                          ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
-                          : null,
-                    ),
-                  );
+  Future<void> _pickReceiptFromGallery() async {
+    final pickedList = await _picker.pickMultiImage();
+    if (pickedList.isEmpty) {
+      return;
+    }
+
+    const allowedExt = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
+    final validFiles = <XFile>[];
+
+    for (final file in pickedList) {
+      final lowerPath = file.path.toLowerCase();
+      final isValid = allowedExt.any((ext) => lowerPath.endsWith(ext));
+      if (isValid) {
+        validFiles.add(file);
+      }
+    }
+
+    if (validFiles.isEmpty) {
+      setState(() {
+        _receiptError =
+            'Unsupported file type. Please select JPG, PNG, WEBP or HEIC images.';
+      });
+      return;
+    }
+
+    setState(() {
+      _receiptImages.addAll(validFiles);
+      _receiptError = null;
+    });
+  }
+
+  Future<void> _captureReceiptPhoto() async {
+    final photo = await _picker.pickImage(source: ImageSource.camera);
+    if (photo == null) {
+      return;
+    }
+
+    const allowedExt = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
+    final lowerPath = photo.path.toLowerCase();
+    final isValid = allowedExt.any((ext) => lowerPath.endsWith(ext));
+    if (!isValid) {
+      setState(() {
+        _receiptError =
+            'Unsupported file type. Please capture JPG, PNG, WEBP or HEIC image.';
+      });
+      return;
+    }
+
+    setState(() {
+      _receiptImages.add(photo);
+      _receiptError = null;
+    });
+  }
+
+  void _showReceiptSourceSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take photo'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await _captureReceiptPhoto();
                 },
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.error),
-              )
-            : Image.file(
-                _selectedImage!,
-                fit: BoxFit.cover,
               ),
-      ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from gallery'),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await _pickReceiptFromGallery();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
-  }
-
-  Future<void> _pickImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image != null) {
-        if (mounted) {
-          setState(() {
-            _selectedImage = File(image.path);
-            _receiptError = null;
-          });
-          if (widget.transaction?.image == null) {
-            await _runReceiptAnalysis(image);
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _receiptError = 'Không thể chọn ảnh. Vui lòng thử lại.';
-        });
-      }
-    }
-  }
-
-  Future<void> _captureImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.camera);
-      if (image != null) {
-        if (mounted) {
-          setState(() {
-            _selectedImage = File(image.path);
-            _receiptError = null;
-          });
-          await _runReceiptAnalysis(image);
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _receiptError = 'Không thể chụp ảnh. Vui lòng thử lại.';
-        });
-      }
-    }
   }
 
   Future<void> _runReceiptAnalysis(XFile file) async {
     if (!mounted) return;
-    
+
     // Show loading indicator
-    final navigator = Navigator.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -803,9 +908,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
 
     try {
       // Call the new API endpoint for AI classification
-      final url = Uri.parse('${EnvConfig.apiBaseUrl}/api/v1/transactions/test-upload-multiple');
+      final url = Uri.parse(
+          '${EnvConfig.apiBaseUrl}/api/v1/transactions/test-upload-multiple');
       final request = http.MultipartRequest('POST', url);
-      
+
       // Add the image file
       final fileStream = http.ByteStream(file.openRead());
       final length = await file.length();
@@ -821,7 +927,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       debugPrint('Sending request to: ${url.toString()}');
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
-      
+
       debugPrint('Response status: ${response.statusCode}');
       debugPrint('Response body: ${response.body}');
 
@@ -831,44 +937,34 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           final result = responseData['result'];
           final totalAmount = result['total_amount'] as String?;
           final invoiceType = result['invoice_type'] as String?;
-          
+
+          if (!mounted) return;
+          Navigator.of(context).pop(); // Dismiss loading indicator
+
           if (mounted) {
             setState(() {
               // Update amount if available
               if (totalAmount != null && totalAmount.isNotEmpty) {
                 try {
-                  // First, remove all non-numeric characters and spaces
-                  String cleanAmount = totalAmount.replaceAll(RegExp(r'[^0-9,.]'), '');
-                  
-                  // Check if the last comma or dot is a decimal separator
+                  String cleanAmount =
+                      totalAmount.replaceAll(RegExp(r'[^0-9,.]'), '');
                   int lastComma = cleanAmount.lastIndexOf(',');
                   int lastDot = cleanAmount.lastIndexOf('.');
-                  
+
                   if (lastComma > lastDot) {
-                    // Comma is the decimal separator, dot is thousand separator
-                    cleanAmount = cleanAmount
-                        .replaceAll('.', '')   // Remove thousand separators
-                        .replaceFirst(',', '.'); // Convert decimal comma to dot
+                    cleanAmount =
+                        cleanAmount.replaceAll('.', '').replaceFirst(',', '.');
                   } else if (lastDot > lastComma) {
-                    // Dot is the decimal separator, comma is thousand separator
-                    cleanAmount = cleanAmount.replaceAll(',', ''); // Remove thousand separators
-                  } else if (lastComma == -1 && lastDot == -1) {
-                    // No decimal point, just a whole number
-                    cleanAmount = cleanAmount;
+                    cleanAmount = cleanAmount.replaceAll(',', '');
                   }
-                  
-                  // Parse to double and format without decimal places if it's a whole number
+
                   double amount = double.parse(cleanAmount);
                   if (amount == amount.truncate()) {
                     _amountController.text = amount.truncate().toString();
                   } else {
                     _amountController.text = amount.toString();
                   }
-                  
-                  debugPrint('Parsed amount: ${_amountController.text} from original: $totalAmount');
                 } catch (e) {
-                  debugPrint('Error parsing amount "$totalAmount": $e');
-                  // Fallback: remove all non-numeric characters
                   String clean = totalAmount.replaceAll(RegExp(r'[^0-9]'), '');
                   if (clean.isNotEmpty) {
                     _amountController.text = clean;
@@ -878,20 +974,39 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                 }
               }
 
-              // Find and set the matching category
-              if (invoiceType != null && _categories.isNotEmpty) {
+              if (invoiceType != null) {
                 try {
                   final matchedCategory = _categories.firstWhere(
-                    (cat) => cat.categoryName?.toLowerCase() == invoiceType.toLowerCase(),
-                    orElse: () => _categories.first,
+                    (cat) =>
+                        cat.categoryName.toLowerCase() ==
+                        invoiceType.toLowerCase(),
                   );
                   _selectedCategory = matchedCategory;
                   _updateTabForCategory(_selectedCategory!);
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(
+                            'Đã tự động chọn danh mục: ${matchedCategory.categoryName}')),
+                  );
                 } catch (e) {
-                  debugPrint('Error setting category: $e');
+                  try {
+                    _selectedCategory = _categories.firstWhere(
+                      (cat) => cat.categoryName == 'Others',
+                    );
+                    _updateTabForCategory(_selectedCategory!);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Loại hóa đơn: $invoiceType')),
+                    );
+                  } catch (e) {
+                    if (_categories.isNotEmpty) {
+                      _selectedCategory = _categories.first;
+                      _updateTabForCategory(_selectedCategory!);
+                    }
+                  }
                 }
               }
-              // Clear any previous errors
+
               _receiptError = null;
             });
           }
@@ -899,10 +1014,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         }
       }
 
-      // If we get here, there was an error
       if (!mounted) return;
-      Navigator.of(context).pop(); // Dismiss loading indicator
-      
+      Navigator.of(context).pop();
+
       String errorMessage = 'Không thể xử lý hóa đơn. Vui lòng thử lại.';
       try {
         final errorData = json.decode(response.body);
@@ -912,9 +1026,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       } catch (e) {
         debugPrint('Error parsing error response: $e');
       }
-      
+
       debugPrint('API Error (${response.statusCode}): $errorMessage');
-      
+
       if (mounted) {
         setState(() {
           _receiptError = errorMessage;
@@ -925,7 +1039,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       }
     } catch (e) {
       if (!mounted) return;
-      Navigator.of(context).pop(); // Dismiss loading indicator
+      Navigator.of(context).pop();
       if (mounted) {
         setState(() {
           _receiptError = 'Có lỗi xảy ra khi xử lý ảnh';
@@ -937,204 +1051,343 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       debugPrint('Error processing receipt: $e');
     }
   }
-  
-  Future<String?> _uploadImage(File imageFile) async {
-    try {
-      // If the image is already a URL, return it directly
-      if (imageFile.path.startsWith('http')) {
-        return imageFile.path;
-      }
-      
-      final url = Uri.parse('${EnvConfig.apiBaseUrl}/api/v1/upload');
-      final request = http.MultipartRequest('POST', url);
-      
-      // Add the image file
-      final fileStream = http.ByteStream(imageFile.openRead());
-      final length = await imageFile.length();
-      final multipartFile = http.MultipartFile(
-        'file',
-        fileStream,
-        length,
-        filename: 'transaction_${DateTime.now().millisecondsSinceEpoch}${path.extension(imageFile.path)}',
-      );
-      request.files.add(multipartFile);
 
-      // Add authorization header if needed
-      if (EnvConfig.apiAuthHeader.isNotEmpty) {
-        request.headers['Authorization'] = EnvConfig.apiAuthHeader;
-      }
-
-      // Send the request
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        // Return full URL if the response contains it, otherwise construct it
-        if (responseData['url'] != null) {
-          return responseData['url'] as String;
-        } else if (responseData['filename'] != null) {
-          return '${EnvConfig.apiBaseUrl}/uploads/${responseData['filename']}';
-        }
-      }
-      
-      debugPrint('Upload failed with status ${response.statusCode}: ${response.body}');
-      return null;
-    } catch (e) {
-      debugPrint('Error uploading image: $e');
-      return null;
+  void _showFullImage(int index) {
+    if (_receiptImages.isEmpty || index < 0 || index >= _receiptImages.length) {
+      return;
     }
-  }
 
-  extension on _CalculatorPad {
-    void _onButtonPressed(String label) {
-      var text = controller.text.replaceAll(',', '');
-      switch (label) {
-        case 'C':
-          text = '';
-          break;
-        case '>':
-          onSubmit();
-          break;
-        case 'x':
-          if (text.isNotEmpty) {
-            text = text.substring(0, text.length - 1);
+    if (!mounted) return;
+
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.9),
+      builder: (BuildContext context) {
+        return GestureDetector(
+          onTap: () => Navigator.of(context).pop(),
+          child: Dialog.fullscreen(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: Image.file(
+                  File(_receiptImages[index].path),
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+extension on _CalculatorPad {
+  void _onButtonPressed(String label) {
+    var text = controller.text.replaceAll(',', '');
+    switch (label) {
+      case 'C':
+        text = '';
+        break;
+      case '>':
+        onSubmit();
+        break;
+      case 'x':
+        if (text.isNotEmpty) {
+          text = text.substring(0, text.length - 1);
+        }
+        break;
+      default:
+        if (label == '.') {
+          if (text.contains('.')) {
+            return;
           }
-          break;
-        default:
-          if (label == '.') {
-            // Không cho nhập nhiều hơn 1 dấu chấm
-            if (text.contains('.')) {
-              return;
-            }
-            // Nếu đang rỗng thì bắt đầu bằng 0.
-            if (text.isEmpty) {
-              text = '0.';
-            } else {
-              text = text + label;
-            }
+          if (text.isEmpty) {
+            text = '0.';
           } else {
             text = text + label;
           }
-      }
-
-      if (label != '>' && label != 'C') {
-        controller.text = _formatWithCommas(text);
-      } else if (label == 'C') {
-        controller.text = '';
-      }
+        } else {
+          text = text + label;
+        }
     }
 
-    String _formatWithCommas(String value) {
-      if (value.isEmpty) return '';
-      String sign = '';
-      var text = value;
-      if (text.startsWith('-')) {
-        sign = '-';
-        text = text.substring(1);
-      }
-
-      String integerPart = text;
-      String decimalPart = '';
-      if (text.contains('.')) {
-        final parts = text.split('.');
-        integerPart = parts[0];
-        decimalPart = parts.sublist(1).join('.');
-      }
-
-      final chars = integerPart.split('').reversed.toList();
-      final buffer = StringBuffer();
-      for (int i = 0; i < chars.length; i++) {
-        if (i != 0 && i % 3 == 0) {
-          buffer.write(',');
-        }
-        buffer.write(chars[i]);
-      }
-      final formattedInt = buffer.toString().split('').reversed.join();
-
-      if (decimalPart.isNotEmpty) {
-        return '$sign$formattedInt.$decimalPart';
-      }
-      return '$sign$formattedInt';
+    if (label != '>' && label != 'C') {
+      controller.text = _formatWithCommas(text);
+    } else if (label == 'C') {
+      controller.text = '';
     }
   }
 
-  class _RowItem extends StatelessWidget {
-    final Widget leading;
-    final String title;
-    final String? subtitle;
-    final bool showChevron;
-    final VoidCallback? onTap;
+  String _formatWithCommas(String value) {
+    if (value.isEmpty) return '';
+    String sign = '';
+    var text = value;
+    if (text.startsWith('-')) {
+      sign = '-';
+      text = text.substring(1);
+    }
 
-    const _RowItem({
-      required this.leading,
-      required this.title,
-      this.subtitle,
-      this.showChevron = false,
-      this.onTap,
-    });
+    String integerPart = text;
+    String decimalPart = '';
+    if (text.contains('.')) {
+      final parts = text.split('.');
+      integerPart = parts[0];
+      decimalPart = parts.sublist(1).join('.');
+    }
 
-    @override
-    Widget build(BuildContext context) {
-      return InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Row(
-            children: [
-              leading,
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+    final chars = integerPart.split('').reversed.toList();
+    final buffer = StringBuffer();
+    for (int i = 0; i < chars.length; i++) {
+      if (i != 0 && i % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(chars[i]);
+    }
+    final formattedInt = buffer.toString().split('').reversed.join();
+
+    if (decimalPart.isNotEmpty) {
+      return '$sign$formattedInt.$decimalPart';
+    }
+    return '$sign$formattedInt';
+  }
+}
+
+class _RowItem extends StatelessWidget {
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final bool showChevron;
+  final VoidCallback? onTap;
+
+  const _RowItem({
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.showChevron = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Row(
+          children: [
+            leading,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
                     Text(
-                      title,
+                      subtitle!,
                       style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
                       ),
                     ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ],
                   ],
+                ],
+              ),
+            ),
+            if (showChevron) const Icon(Icons.chevron_right, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AmountField extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback? onTap;
+
+  const _AmountField({required this.controller, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.translucent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text(
+                'USD',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primaryGreen,
                 ),
               ),
-              if (showChevron) const Icon(Icons.chevron_right, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  readOnly: true,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  textAlign: TextAlign.left,
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: const InputDecoration(
+                    hintText: '0',
+                    border: InputBorder.none,
+                    isCollapsed: true,
+                  ),
+                  onTap: onTap,
+                ),
+              ),
             ],
           ),
-        ),
-      );
-    }
+          const SizedBox(height: 4),
+          const Divider(thickness: 1.5),
+        ],
+      ),
+    );
   }
+}
 
-  class _AmountField extends StatelessWidget {
-    final TextEditingController controller;
-    final VoidCallback? onTap;
+class _SaveBar extends StatelessWidget {
+  final VoidCallback onSave;
+  final VoidCallback onAiClassify;
+  final bool canSave;
+  final bool canAiClassify;
+  final bool isAiRunning;
 
-    const _AmountField({required this.controller, this.onTap});
+  const _SaveBar({
+    required this.onSave,
+    required this.onAiClassify,
+    required this.canSave,
+    required this.canAiClassify,
+    required this.isAiRunning,
+  });
 
-    @override
-    Widget build(BuildContext context) {
-      return GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.translucent,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Row(
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text(
-                  'USD',
+            Expanded(
+              child: ElevatedButton(
+                onPressed:
+                    (!canAiClassify || isAiRunning) ? null : onAiClassify,
+                child: isAiRunning
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('AI classify'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: canSave ? onSave : null,
+                child: const Text('Save transaction'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CalculatorPad extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onSubmit;
+
+  const _CalculatorPad({required this.controller, required this.onSubmit});
+
+  @override
+  Widget build(BuildContext context) {
+    // Layout yêu cầu:
+    // 1   2   3   C
+    // 4   5   6   x
+    // 7   8   9   .
+    // 00  0  000  >
+    final buttons = [
+      '1',
+      '2',
+      '3',
+      'C',
+      '4',
+      '5',
+      '6',
+      'x',
+      '7',
+      '8',
+      '9',
+      '.',
+      '00',
+      '0',
+      '000',
+      '>',
+    ];
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: 1.3,
+            ),
+            itemCount: buttons.length,
+            itemBuilder: (context, index) {
+              final label = buttons[index];
+              final isAction = ['C', 'x', '>'].contains(label);
+              final isPrimary = label == '>';
+              return ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      isPrimary ? AppTheme.primaryGreen : Colors.white,
+                  foregroundColor: isPrimary
+                      ? Colors.white
+                      : (isAction ? AppTheme.primaryGreen : Colors.black87),
+                  elevation: isPrimary ? 2 : 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: isPrimary
+                          ? Colors.transparent
+                          : Colors.grey.withOpacity(0.3),
+                    ),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 10, horizontal: 0),
+                ),
                 onPressed: () {
                   _onButtonPressed(label);
                 },

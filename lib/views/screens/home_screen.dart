@@ -110,8 +110,12 @@ class _HomeContentState extends State<_HomeContent> {
         // Get the first wallet's ID FE
         final walletIdFE = wallets.first.idFE;
         if (walletIdFE != null) {
-          final response = await ApiClient().get('/api/v1/transactions/amount/$walletIdFE');
-          if (response != null && response['code'] == 1000 && response['result'] is List && response['result'].isNotEmpty) {
+          final response =
+              await ApiClient().get('/api/v1/transactions/amount/$walletIdFE');
+          if (response != null &&
+              response['code'] == 1000 &&
+              response['result'] is List &&
+              response['result'].isNotEmpty) {
             if (mounted) {
               setState(() {
                 _walletData = response['result'][0];
@@ -135,19 +139,21 @@ class _HomeContentState extends State<_HomeContent> {
     try {
       final transactionService = TransactionService();
       final transactions = await transactionService.getUserTransactions();
-      
+
       double income = 0;
       double expense = 0;
-      
+
       final now = DateTime.now();
       final currentMonth = DateTime(now.year, now.month);
-      
+
       for (var transaction in transactions) {
         if (transaction.date.isAfter(currentMonth)) {
           if (transaction.groupType == 'income') {
-            income += transaction.amount.abs(); // Ensure positive amount for income
+            income +=
+                transaction.amount.abs(); // Ensure positive amount for income
           } else if (transaction.groupType == 'expense') {
-            expense += transaction.amount.abs(); // Ensure positive amount for expense
+            expense +=
+                transaction.amount.abs(); // Ensure positive amount for expense
           }
         }
       }
@@ -186,8 +192,8 @@ class _HomeContentState extends State<_HomeContent> {
           _isLoading
               ? const Center(child: CircularProgressIndicator())
               : MonthlyReportChart(
-                  income: _totalIncome,
-                  expense: _totalExpense,
+                  income: _totalIncome > 0 ? _totalIncome : 0,
+                  expense: _totalExpense > 0 ? _totalExpense : 0,
                 ),
           const SizedBox(height: 24),
           const _PromoBanner(),
@@ -203,9 +209,9 @@ class _HomeContentState extends State<_HomeContent> {
 
 class _HomeHeader extends StatefulWidget {
   final double balance;
-  
+
   const _HomeHeader({required this.balance});
-  
+
   @override
   _HomeHeaderState createState() => _HomeHeaderState();
 }
@@ -224,9 +230,9 @@ class _HomeHeaderState extends State<_HomeHeader> {
             Row(
               children: [
                 Text(
-                  _showBalance 
-                    ? '${widget.balance >= 0 ? '' : '-'}₫${NumberFormat('#,###').format(widget.balance.abs())}'
-                    : '••••••',
+                  _showBalance
+                      ? '${widget.balance >= 0 ? '' : '-'}₫${NumberFormat('#,###').format(widget.balance.abs())}'
+                      : '••••••',
                   style: const TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w700,
@@ -561,15 +567,17 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
     try {
       final transactionService = TransactionService();
       final transactions = await transactionService.getUserTransactions();
-      
+
       // Group transactions by category and sum amounts (only expenses)
       final categoryMap = <String, double>{};
       final categoryNames = <String, String>{};
-      
+
       for (var transaction in transactions) {
-        if (transaction.groupType == 'expense' && transaction.categoryName != null) {
+        if (transaction.groupType == 'expense' &&
+            transaction.categoryName != null) {
           final categoryName = transaction.categoryName!;
-          categoryMap[categoryName] = (categoryMap[categoryName] ?? 0) + transaction.amount.abs();
+          categoryMap[categoryName] =
+              (categoryMap[categoryName] ?? 0) + transaction.amount.abs();
           categoryNames[categoryName] = categoryName;
         }
       }
@@ -581,7 +589,8 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
                 'amount': e.value,
               })
           .toList()
-        ..sort((a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+        ..sort(
+            (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
 
       // Take top 5
       setState(() {
@@ -698,10 +707,12 @@ class _RecentTransactionsSection extends StatefulWidget {
   const _RecentTransactionsSection();
 
   @override
-  _RecentTransactionsSectionState createState() => _RecentTransactionsSectionState();
+  _RecentTransactionsSectionState createState() =>
+      _RecentTransactionsSectionState();
 }
 
-class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> {
+class _RecentTransactionsSectionState
+    extends State<_RecentTransactionsSection> {
   List<Transaction> _recentTransactions = [];
   bool _isLoading = true;
   String _error = '';
@@ -716,10 +727,10 @@ class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> 
     try {
       final transactionService = TransactionService();
       final transactions = await transactionService.getUserTransactions();
-      
+
       // Sort by date in descending order and take first 5
       transactions.sort((a, b) => b.date.compareTo(a.date));
-      
+
       setState(() {
         _recentTransactions = transactions.take(5).toList();
         _isLoading = false;
@@ -769,7 +780,8 @@ class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> 
         else if (_recentTransactions.isEmpty)
           const Text('No recent transactions')
         else
-          ..._recentTransactions.map((transaction) => _buildTransactionItem(transaction)),
+          ..._recentTransactions
+              .map((transaction) => _buildTransactionItem(transaction)),
       ],
     );
   }
@@ -778,7 +790,7 @@ class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> 
     final isExpense = transaction.groupType != 'income';
     final icon = _getCategoryIcon(transaction.categoryName ?? 'Other');
     final formattedDate = DateFormat('dd MMMM yyyy').format(transaction.date);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -787,7 +799,7 @@ class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> 
       ),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: isExpense 
+          backgroundColor: isExpense
               ? Colors.red.withOpacity(0.1)
               : AppTheme.primaryGreen.withOpacity(0.1),
           child: Icon(
@@ -824,7 +836,7 @@ class _RecentTransactionsSectionState extends State<_RecentTransactionsSection> 
 
   IconData _getCategoryIcon(String? category) {
     if (category == null) return Icons.category;
-    
+
     final iconMap = {
       'Food': Icons.restaurant,
       'Transportation': Icons.directions_car,

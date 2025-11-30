@@ -15,7 +15,9 @@ class MonthlyReportChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxValue = (income > expense ? income : expense) * 1.2;
+    final rawMax = (income > expense ? income : expense);
+    // Ensure maxValue is non-zero to avoid SideTitles.interval == 0 assertion
+    final maxValue = (rawMax <= 0) ? 1.0 : rawMax * 1.2;
     final barWidth = 20.0;
 
     return Container(
@@ -54,7 +56,8 @@ class MonthlyReportChart extends StatelessWidget {
                   );
                 },
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -104,6 +107,7 @@ class MonthlyReportChart extends StatelessWidget {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      // interval must not be zero; using computed non-zero maxValue above
                       interval: maxValue / 5,
                       getTitlesWidget: (value, meta) {
                         return Text(
