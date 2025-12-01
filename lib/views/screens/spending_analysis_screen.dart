@@ -43,7 +43,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         t.groupType == _selectedTab.toLowerCase() &&
         t.date.year == _selectedMonth.year &&
         t.date.month == _selectedMonth.month)) {
-      final categoryName = txn.categoryName ?? 'Khác';
+      final categoryName = txn.categoryName ?? 'Other';
       categoryTotals.update(
         categoryName,
         (value) =>

@@ -238,7 +238,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       // Orange for Transportation
       'Di chuyển': const Color(0xFFFF9800),
       // Purple for Entertainment
-      'Giải trí': const Color(0xFF9C27B0),
+      'Entertainment': const Color(0xFF9C27B0),
       // Blue Grey for Others
       'Khác': const Color(0xFF607D8B),
     };

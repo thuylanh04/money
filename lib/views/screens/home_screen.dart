@@ -343,7 +343,7 @@ class _HomeHeaderState extends State<_HomeHeader> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Tổng số dư',
+              'Total Balance',
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.grey,

@@ -1298,7 +1298,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       if (!mounted) return;
       Navigator.of(context).pop(); // Dismiss loading indicator
 
-      String errorMessage = 'Không thể xử lý hóa đơn. Vui lòng thử lại.';
+      String errorMessage = 'Unable to process receipt. Please try again.';
       try {
         final errorData = json.decode(response.body);
         if (errorData['message'] != null) {
@@ -1323,10 +1323,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       Navigator.of(context).pop(); // Dismiss loading indicator
       if (mounted) {
         setState(() {
-          _receiptError = 'Có lỗi xảy ra khi xử lý ảnh';
+          _receiptError = 'An error occurred while processing the image';
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Có lỗi xảy ra khi xử lý ảnh')),
+          const SnackBar(content: Text('An error occurred while processing the image')),
         );
       }
       debugPrint('Error processing receipt: $e');

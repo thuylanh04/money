@@ -43,7 +43,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
     final Map<String, double> categoryTotals = {};
 
     for (var txn in transactions.where((t) => t.groupType == 'expense')) {
-      final categoryName = txn.categoryName ?? 'Khác';
+      final categoryName = txn.categoryName ?? 'Other';
       categoryTotals.update(
         categoryName,
         (value) => value + txn.amount,
@@ -75,11 +75,11 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Lỗi khi tải dữ liệu'),
+                  const Text('Error loading data'),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _loadTransactions,
-                    child: const Text('Thử lại'),
+                    child: const Text('Retry'),
                   ),
                 ],
               ),
@@ -89,11 +89,11 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Không có dữ liệu giao dịch'),
+                  const Text('No transaction data available'),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _loadTransactions,
-                    child: const Text('Tải lại'),
+                    child: const Text('Reload'),
                   ),
                 ],
               ),
@@ -179,7 +179,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
         child: Column(
           children: [
             const Text(
-              'Tổng chi tiêu tháng này',
+              'Total expenses this month',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.blueGrey,
@@ -198,9 +198,9 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildStatItem('Tổng thu nhập', totalIncome, Colors.green),
+                _buildStatItem('Total income', totalIncome, Colors.green),
                 _buildStatItem(
-                  'Tiết kiệm',
+                  'Savings',
                   savings > 0 ? savings : 0,
                   savings > 0 ? Colors.blue : Colors.red,
                 ),
@@ -246,7 +246,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Chi tiêu theo danh mục',
+          'Expenses by category',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -336,7 +336,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Giao dịch gần đây',
+          'Recent transactions',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -353,7 +353,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
   Widget _buildTransactionItem(Transaction txn) {
     final isExpense = txn.groupType == 'expense';
     final categoryName = txn.categoryName ?? 'Khác';
-    final note = txn.note?.isNotEmpty == true ? txn.note! : 'Không có mô tả';
+    final note = txn.note?.isNotEmpty == true ? txn.note! : 'No description';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
