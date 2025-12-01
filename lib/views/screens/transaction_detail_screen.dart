@@ -482,9 +482,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: _selectedDate,
+                      initialDate: _selectedDate.isAfter(DateTime.now()) ? DateTime.now() : _selectedDate,
                       firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
+                      lastDate: DateTime.now(),
                     );
                     if (picked != null) {
                       setState(() {
