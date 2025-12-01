@@ -689,10 +689,10 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
             (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
 
 
-      // Take top 5
+      // Take top 3
       if (!mounted) return;
       setState(() {
-        _topCategories = sortedCategories.take(5).toList();
+        _topCategories = sortedCategories.take(3).toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -711,7 +711,7 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Top spending',
+          'Top Spending Categories',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
