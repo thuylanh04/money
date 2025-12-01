@@ -7,6 +7,7 @@ import 'package:money_manage/services/wallet_service.dart';
 import 'package:money_manage/services/storage_service.dart';
 import 'package:money_manage/services/api_client.dart';
 
+
 import '../../theme/app_theme.dart';
 import '../../services/chart_service.dart';
 import '../widgets/income_expense_chart.dart';
@@ -17,17 +18,71 @@ import 'transaction_detail_screen.dart';
 import 'transactions_screen.dart';
 import 'chatbot_screen.dart';
 
+
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
 
+
   const HomeScreen({super.key});
+
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  DateTime? _lastBackPressTime;
+
+
+  // Add this method to handle back button press
+  Future<bool> _onWillPop() async {
+  if (_currentIndex != 0) {
+    // Nếu không phải tab Home, chuyển về tab Home
+    setState(() => _currentIndex = 0);
+    return false; // không thoát app
+  }
+
+
+  final now = DateTime.now();
+  if (_lastBackPressTime == null ||
+      now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+    _lastBackPressTime = now;
+
+
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 0,
+        width: MediaQuery.of(context).size.width,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            color: Colors.black87,
+            child: const Text(
+              'Press again to exit app',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ),
+      ),
+    );
+
+
+    overlay?.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 2), () => overlayEntry.remove());
+
+
+    return false;
+  }
+  return true;
+}
+
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -38,52 +93,56 @@ class _HomeScreenState extends State<HomeScreen> {
       const AccountScreen(),
     ];
 
-    return Scaffold(
-      body: SafeArea(child: pages[_currentIndex]),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-        },
-        selectedItemColor: AppTheme.primaryGreen,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet_outlined),
-            label: 'Transactions',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.pie_chart_outline),
-            label: 'Analysis',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Account',
-          ),
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 8.0),
-        child: GestureDetector(
-          onLongPress: () {
-            // Open chatbot on long press
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ChatbotScreen()),
-            );
+
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        body: SafeArea(child: pages[_currentIndex]),
+        bottomNavigationBar: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() => _currentIndex = index);
           },
-          child: FloatingActionButton(
-            onPressed: () {
-              Navigator.of(context)
-                  .pushNamed(TransactionDetailScreen.routeName);
+          selectedItemColor: AppTheme.primaryGreen,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              label: 'Transactions',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.pie_chart_outline),
+              label: 'Analysis',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              label: 'Account',
+            ),
+          ],
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: GestureDetector(
+            onLongPress: () {
+              // Open chatbot on long press
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChatbotScreen()),
+              );
             },
-            backgroundColor: AppTheme.primaryGreen,
-            child: const Icon(Icons.add, color: Colors.white),
+            child: FloatingActionButton(
+              onPressed: () {
+                Navigator.of(context)
+                    .pushNamed(TransactionDetailScreen.routeName);
+              },
+              backgroundColor: AppTheme.primaryGreen,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
           ),
         ),
       ),
@@ -91,13 +150,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+
 /// Home content dựa trên screenshot: balance, wallet card, report card, banner, top spending, recent transactions.
 class _HomeContent extends StatefulWidget {
   const _HomeContent({super.key});
 
+
   @override
   State<_HomeContent> createState() => _HomeContentState();
 }
+
 
 class _HomeContentState extends State<_HomeContent> {
   double _totalIncome = 0;
@@ -107,12 +169,14 @@ class _HomeContentState extends State<_HomeContent> {
   final WalletService _walletService = WalletService(ApiClient());
   Map<String, dynamic>? _walletData;
 
+
   @override
   void initState() {
     super.initState();
     _loadWalletData();
     _loadTransactionData();
   }
+
 
   Future<void> _loadWalletData() async {
     try {
@@ -146,19 +210,24 @@ class _HomeContentState extends State<_HomeContent> {
     }
   }
 
+
   Future<void> _loadTransactionData() async {
     try {
       final transactionService = TransactionService();
       final transactions = await transactionService.getUserTransactions();
 
+
       double income = 0;
       double expense = 0;
 
+
       final now = DateTime.now();
+
 
       for (var transaction in transactions) {
         // normalize to local to avoid timezone mismatches
         final txDate = transaction.date.toLocal();
+
 
         // Kiểm tra chính xác cùng tháng/năm với thời điểm hiện tại
         if (txDate.year == now.year && txDate.month == now.month) {
@@ -169,6 +238,7 @@ class _HomeContentState extends State<_HomeContent> {
           }
         }
       }
+
 
       if (mounted) {
         setState(() {
@@ -191,6 +261,7 @@ class _HomeContentState extends State<_HomeContent> {
       print('Error loading transaction data: $e');
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -219,17 +290,22 @@ class _HomeContentState extends State<_HomeContent> {
   }
 }
 
+
 class _HomeHeader extends StatefulWidget {
   final double balance;
 
+
   const _HomeHeader({required this.balance});
+
 
   @override
   _HomeHeaderState createState() => _HomeHeaderState();
 }
 
+
 class _HomeHeaderState extends State<_HomeHeader> {
   bool _showBalance = true;
+
 
   @override
   Widget build(BuildContext context) {
@@ -281,8 +357,10 @@ class _HomeHeaderState extends State<_HomeHeader> {
   }
 }
 
+
 class _WalletCard extends StatelessWidget {
   const _WalletCard();
+
 
   @override
   Widget build(BuildContext context) {
@@ -344,8 +422,10 @@ class _WalletCard extends StatelessWidget {
   }
 }
 
+
 class _ReportSection extends StatelessWidget {
   const _ReportSection();
+
 
   @override
   Widget build(BuildContext context) {
@@ -510,8 +590,10 @@ class _ReportSection extends StatelessWidget {
   }
 }
 
+
 class _PromoBanner extends StatelessWidget {
   const _PromoBanner();
+
 
   @override
   Widget build(BuildContext context) {
@@ -551,17 +633,21 @@ class _PromoBanner extends StatelessWidget {
   }
 }
 
+
 class _TopSpendingSection extends StatefulWidget {
   const _TopSpendingSection();
+
 
   @override
   _TopSpendingSectionState createState() => _TopSpendingSectionState();
 }
 
+
 class _TopSpendingSectionState extends State<_TopSpendingSection> {
   List<Map<String, dynamic>> _topCategories = [];
   bool _isLoading = true;
   String _error = '';
+
 
   @override
   void initState() {
@@ -569,14 +655,17 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
     _loadTopSpending();
   }
 
+
   Future<void> _loadTopSpending() async {
     try {
       final transactionService = TransactionService();
       final transactions = await transactionService.getUserTransactions();
 
+
       // Group transactions by category and sum amounts (only expenses)
       final categoryMap = <String, double>{};
       final categoryNames = <String, String>{};
+
 
       for (var transaction in transactions) {
         if (transaction.groupType == 'expense' &&
@@ -588,6 +677,7 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
         }
       }
 
+
       // Convert to list and sort by amount in descending order
       final sortedCategories = categoryMap.entries
           .map((e) => {
@@ -597,6 +687,7 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
           .toList()
         ..sort(
             (a, b) => (b['amount'] as double).compareTo(a['amount'] as double));
+
 
       // Take top 5
       if (!mounted) return;
@@ -612,6 +703,7 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -642,10 +734,12 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
     );
   }
 
+
   Widget _buildCategoryItem(String category, double amount, IconData icon) {
     // Since this is the top spending section, all items are expenses
     final isIncome = false;
-    
+
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -656,8 +750,8 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: isIncome 
-                ? Colors.green.withOpacity(0.1) 
+            backgroundColor: isIncome
+                ? Colors.green.withOpacity(0.1)
                 : Colors.red.withOpacity(0.1),
             child: Icon(
               isIncome ? Icons.arrow_downward : Icons.arrow_upward,
@@ -685,6 +779,7 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
     );
   }
 
+
   IconData _getCategoryIcon(String category) {
     // Map categories to appropriate icons
     final iconMap = {
@@ -698,17 +793,21 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
       'Others': Icons.category,
     };
 
+
     return iconMap[category] ?? Icons.category;
   }
 }
 
+
 class _RecentTransactionsSection extends StatefulWidget {
   const _RecentTransactionsSection();
+
 
   @override
   _RecentTransactionsSectionState createState() =>
       _RecentTransactionsSectionState();
 }
+
 
 class _RecentTransactionsSectionState
     extends State<_RecentTransactionsSection> {
@@ -716,19 +815,23 @@ class _RecentTransactionsSectionState
   bool _isLoading = true;
   String _error = '';
 
+
   @override
   void initState() {
     super.initState();
     _loadRecentTransactions();
   }
 
+
   Future<void> _loadRecentTransactions() async {
     try {
       final transactionService = TransactionService();
       final transactions = await transactionService.getUserTransactions();
 
+
       // Sort by date in descending order and take first 5
       transactions.sort((a, b) => b.date.compareTo(a.date));
+
 
       if (!mounted) return;
       setState(() {
@@ -743,6 +846,7 @@ class _RecentTransactionsSectionState
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -787,9 +891,11 @@ class _RecentTransactionsSectionState
     );
   }
 
+
   Widget _buildTransactionItem(Transaction transaction) {
     final isExpense = transaction.groupType != 'income';
     final formattedDate = DateFormat('dd MMMM yyyy').format(transaction.date);
+
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -835,8 +941,10 @@ class _RecentTransactionsSectionState
     );
   }
 
+
   IconData _getCategoryIcon(String? category) {
     if (category == null) return Icons.category;
+
 
     final iconMap = {
       'Food': Icons.restaurant,
@@ -850,6 +958,7 @@ class _RecentTransactionsSectionState
       'Investment': Icons.trending_up,
       'Gift': Icons.card_giftcard,
     };
+
 
     return iconMap[category] ?? Icons.category;
   }
