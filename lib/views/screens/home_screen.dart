@@ -618,30 +618,12 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Top spending',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            GestureDetector(
-              onTap: () {
-                // Navigate to transactions screen with expense filter
-                Navigator.pushNamed(context, TransactionsScreen.routeName);
-              },
-              child: const Text(
-                'See details',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.primaryGreen,
-                ),
-              ),
-            ),
-          ],
+        const Text(
+          'Top spending',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 8),
         if (_isLoading)
