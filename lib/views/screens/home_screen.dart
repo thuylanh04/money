@@ -15,6 +15,7 @@ import 'account_screen.dart';
 import 'analysis_screen.dart';
 import 'transaction_detail_screen.dart';
 import 'transactions_screen.dart';
+import 'chatbot_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
@@ -68,12 +69,21 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 8.0),
-        child: FloatingActionButton(
-          onPressed: () {
-            Navigator.of(context).pushNamed(TransactionDetailScreen.routeName);
+        child: GestureDetector(
+          onLongPress: () {
+            // Open chatbot on long press
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ChatbotScreen()),
+            );
           },
-          backgroundColor: AppTheme.primaryGreen,
-          child: const Icon(Icons.add, color: Colors.white),
+          child: FloatingActionButton(
+            onPressed: () {
+              Navigator.of(context).pushNamed(TransactionDetailScreen.routeName);
+            },
+            backgroundColor: AppTheme.primaryGreen,
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
         ),
       ),
     );
