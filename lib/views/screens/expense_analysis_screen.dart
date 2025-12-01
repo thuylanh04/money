@@ -187,7 +187,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '₫${NumberFormat('#,###').format(totalExpense)}',
+              '\$${NumberFormat('#,###').format(totalExpense)}',
               style: const TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
@@ -225,7 +225,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          '${amount >= 0 ? '+' : ''}₫${NumberFormat('#,###').format(amount)}',
+          '${amount >= 0 ? '+' : ''}\$${NumberFormat('#,###').format(amount)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -312,7 +312,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
           ),
           const SizedBox(width: 8),
           Text(
-            '₫${NumberFormat('#,###').format(amount)}',
+            '\$${NumberFormat('#,###').format(amount)}',
             style: const TextStyle(
               fontWeight: FontWeight.w600,
             ),
@@ -387,7 +387,7 @@ class _ExpenseAnalysisScreenState extends State<ExpenseAnalysisScreen> {
           style: const TextStyle(fontSize: 12),
         ),
         trailing: Text(
-          '${isExpense ? '-' : '+'}₫${NumberFormat('#,###').format(txn.amount)}',
+          '${isExpense ? '-' : '+'}\$${NumberFormat('#,###').format(txn.amount)}',
           style: TextStyle(
             color: isExpense ? Colors.red : Colors.green,
             fontWeight: FontWeight.w600,

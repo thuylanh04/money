@@ -60,13 +60,13 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã xử lý hóa đơn thành công!')),
+            const SnackBar(content: Text('Receipt processed successfully!')),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Lỗi: ${e.toString()}')),
+            SnackBar(content: Text('Error: ${e.toString()}')),
           );
         }
       }
@@ -87,7 +87,7 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            widget.isNewTransaction ? 'Giao dịch mới' : 'Chi tiết giao dịch'),
+            widget.isNewTransaction ? 'New Transaction' : 'Transaction Details'),
         centerTitle: true,
         actions: [
           if (widget.isNewTransaction)
@@ -96,7 +96,7 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Icon(Icons.receipt_long),
               onPressed: _isProcessing ? null : _processReceipt,
-              tooltip: 'Quét hóa đơn',
+              tooltip: 'Scan receipt',
             ),
         ],
       ),
@@ -108,7 +108,7 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
             // Amount
             Center(
               child: Text(
-                '${isExpense ? '-' : ''}${_formatCurrency(widget.transaction.amount.abs())} VND',
+                '${isExpense ? '-' : ''}${_formatCurrency(widget.transaction.amount.abs())} USD',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
@@ -125,19 +125,19 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildDetailRow('Danh mục',
-                        widget.transaction.categoryIdFE ?? 'Chưa phân loại'),
+                    _buildDetailRow('Category',
+                        widget.transaction.categoryIdFE ?? 'Uncategorized'),
                     const Divider(),
                     _buildDetailRow(
-                        'Ví', widget.transaction.walletIdFE ?? 'Chưa chọn'),
+                        'Wallet', widget.transaction.walletIdFE ?? 'Not selected'),
                     const Divider(),
                     _buildDetailRow(
-                        'Ngày',
+                        'Date',
                         DateFormat('dd/MM/yyyy')
                             .format(widget.transaction.date)),
                     if (widget.transaction.note?.isNotEmpty ?? false) ...[
                       const Divider(),
-                      _buildDetailRow('Ghi chú', widget.transaction.note!),
+                      _buildDetailRow('Note', widget.transaction.note!),
                     ],
                   ],
                 ),
@@ -276,7 +276,7 @@ class _TransactionViewScreenState extends State<TransactionViewScreen> {
       children: [
         const SizedBox(height: 16),
         const Text(
-          'Hình ảnh hóa đơn',
+          'Receipt Images',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,

@@ -56,10 +56,10 @@ class TransactionListItem extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            '${transaction.amount.toStringAsFixed(0).replaceAllMapped(
-                  RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+            '\$${transaction.amount.toStringAsFixed(2).replaceAllMapped(
+                  RegExp(r'(\d{1,3})(?=(\d{3})+(\.\d+)?\b)'),
                   (match) => '${match[1]},',
-                )} VND',
+                )} USD',
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: amountColor,

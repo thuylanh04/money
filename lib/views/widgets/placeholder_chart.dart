@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 
-/// Placeholder cho biểu đồ báo cáo.
-/// TODO: Thay bằng package chart thực (ví dụ fl_chart hoặc charts_flutter) khi tích hợp.
+/// Placeholder for the report chart.
+/// TODO: Replace with an actual chart package (e.g., fl_chart or charts_flutter) when integrating.
 class PlaceholderChart extends StatelessWidget {
   final double height;
 

@@ -241,7 +241,7 @@ class _HomeHeaderState extends State<_HomeHeader> {
               children: [
                 Text(
                   _showBalance
-                      ? '${widget.balance >= 0 ? '' : '-'}₫${NumberFormat('#,###').format(widget.balance.abs())}'
+                      ? '${widget.balance >= 0 ? '' : '-'}\$${NumberFormat('#,###').format(widget.balance.abs())}'
                       : '••••••',
                   style: const TextStyle(
                     fontSize: 26,

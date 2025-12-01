@@ -222,7 +222,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       debugPrint('Error loading categories: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể tải danh mục')),
+          const SnackBar(content: Text('Failed to load categories')),
         );
       }
     }
@@ -241,7 +241,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Vui lòng đính kèm ít nhất một ảnh hóa đơn.')),
+              content: Text('Please attach at least one receipt image.')),
         );
       }
       return;
@@ -266,7 +266,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Không thể phân tích hóa đơn. Vui lòng thử lại.')),
+              content: Text('Failed to process receipt. Please try again.')),
         );
       }
     } finally {
@@ -638,7 +638,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     } catch (e) {
       if (mounted) {
         setState(() {
-          _walletError = 'Không thể tải danh sách ví. Vui lòng thử lại.';
+          _walletError = 'Failed to load wallet list. Please try again.';
         });
       }
       print('Error loading wallets: $e');
@@ -656,7 +656,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Ví',
+          'Wallet',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -670,7 +670,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
             style: const TextStyle(color: Colors.red),
           ),
         if (!_isLoadingWallets && _wallets.isEmpty)
-          const Text('Không có ví nào'),
+          const Text('No wallets available'),
         if (_wallets.isNotEmpty)
           DropdownButtonFormField<Wallet>(
             value: _selectedWallet,
@@ -756,7 +756,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     if (_amountController.text.isEmpty) {
       if (mounted) {
         setState(() {
-          _amountError = 'Vui lòng nhập số tiền';
+          _amountError = 'Please enter amount';
         });
       }
       return;
@@ -765,7 +765,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     if (_selectedCategory == null) {
       if (mounted) {
         setState(() {
-          _categoryError = 'Vui lòng chọn danh mục';
+          _categoryError = 'Please select a category';
         });
       }
       return;
@@ -774,7 +774,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     if (_selectedWallet == null) {
       if (mounted) {
         setState(() {
-          _walletValidationError = 'Vui lòng chọn ví';
+          _walletValidationError = 'Please select a wallet';
         });
       }
       return;
@@ -813,7 +813,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
             _remoteReceiptUrls = updated.image ?? [];
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cập nhật giao dịch thành công')),
+            const SnackBar(content: Text('Transaction updated successfully')),
           );
         }
       } else {
@@ -829,7 +829,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         // response contains the created Transaction if needed
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Thêm giao dịch thành công')),
+            const SnackBar(content: Text('Transaction added successfully')),
           );
         }
       }
@@ -854,7 +854,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Lỗi'),
+          title: const Text('Error'),
           content: Text(message),
           actions: [
             TextButton(
@@ -1262,7 +1262,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                         content: Text(
-                            'Đã tự động chọn danh mục: ${matchedCategory.categoryName}')),
+                            'Automatically selected category: ${matchedCategory.categoryName}')),
                   );
                 } catch (e) {
                   // If no exact match, try to find 'Others' category

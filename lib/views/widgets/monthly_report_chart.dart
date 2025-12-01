@@ -40,7 +40,7 @@ class MonthlyReportChart extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Báo cáo tháng này',
+                "This Month's Report",
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -64,7 +64,7 @@ class MonthlyReportChart extends StatelessWidget {
                 child: const Row(
                   children: [
                     Text(
-                      'Xem chi tiết',
+                      'View Details',
                       style: TextStyle(
                         color: Colors.blue,
                         fontSize: 12,
@@ -96,9 +96,9 @@ class MonthlyReportChart extends StatelessWidget {
                       showTitles: true,
                       getTitlesWidget: (value, meta) {
                         if (value == 0) {
-                          return const Text('Thu nhập');
+                          return const Text('Income');
                         } else if (value == 1) {
-                          return const Text('Chi tiêu');
+                          return const Text('Expense');
                         }
                         return const Text('');
                       },
@@ -113,7 +113,7 @@ class MonthlyReportChart extends StatelessWidget {
                         return Text(
                           NumberFormat.compactCurrency(
                             locale: 'vi_VN',
-                            symbol: '₫',
+                            symbol: '\$',
                             decimalDigits: 0,
                           ).format(value),
                           style: const TextStyle(fontSize: 10),
@@ -170,8 +170,8 @@ class MonthlyReportChart extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildLegend('Tổng thu', income, const Color(0xFF4CAF50)),
-              _buildLegend('Tổng chi', expense, const Color(0xFFF44336)),
+              _buildLegend('Total Income', income, const Color(0xFF4CAF50)),
+              _buildLegend('Total Expense', expense, const Color(0xFFF44336)),
             ],
           ),
         ],
@@ -204,7 +204,7 @@ class MonthlyReportChart extends StatelessWidget {
             Text(
               NumberFormat.currency(
                 locale: 'vi_VN',
-                symbol: '₫',
+                symbol: '\$',
                 decimalDigits: 0,
               ).format(amount),
               style: const TextStyle(

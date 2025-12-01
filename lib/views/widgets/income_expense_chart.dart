@@ -37,7 +37,7 @@ class IncomeExpenseChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Tổng thu chi',
+            'Income & Expenses',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -90,13 +90,13 @@ class IncomeExpenseChart extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildLegend(
-                      'Thu nhập',
+                      'Income',
                       _formatCurrency(income),
                       AppTheme.primaryGreen,
                     ),
                     const SizedBox(height: 12),
                     _buildLegend(
-                      'Chi tiêu',
+                      'Expense',
                       _formatCurrency(expense),
                       Colors.red,
                     ),
@@ -104,7 +104,7 @@ class IncomeExpenseChart extends StatelessWidget {
                     Divider(height: 1, color: Colors.grey[300]),
                     const SizedBox(height: 12),
                     _buildLegend(
-                      'Tổng cộng',
+                      'Total',
                       _formatCurrency(income - expense),
                       Colors.blue,
                       isBold: true,
@@ -154,11 +154,11 @@ class IncomeExpenseChart extends StatelessWidget {
   }
 
   static String _formatCurrency(double amount) {
-    // Format currency with VND symbol and thousand separators
+    // Format currency with USD symbol and thousand separators
     final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: '₫',
-      decimalDigits: 0,
+      locale: 'en_US',
+      symbol: '\$',
+      decimalDigits: 2,
     );
     return formatter.format(amount);
   }
