@@ -15,7 +15,7 @@ class SpendingAnalysisScreen extends StatefulWidget {
 class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   DateTime _selectedMonth = DateTime.now();
   late Future<List<Transaction>> _transactionsFuture;
-  String _selectedTab = 'Chi tiêu'; // 'Chi tiêu' or 'Thu nhập'
+  String _selectedTab = 'Expense'; // 'Expense' or 'Income'
 
   @override
   void initState() {
@@ -91,11 +91,11 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text('Không có dữ liệu giao dịch'),
+                  const Text('No transaction data'),
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _loadTransactions,
-                    child: const Text('Tải lại'),
+                    child: const Text('Reload'),
                   ),
                 ],
               ),
@@ -131,7 +131,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   }
 
   Widget _buildMonthSelector() {
-    final monthName = DateFormat('MMMM yyyy', 'vi_VN').format(_selectedMonth);
+    final monthName = DateFormat('MMMM yyyy', 'en_US').format(_selectedMonth);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -185,8 +185,8 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
       ),
       child: Row(
         children: [
-          _buildTabButton('Chi tiêu'),
-          _buildTabButton('Thu nhập'),
+          _buildTabButton('Expense'),
+          _buildTabButton('Income'),
         ],
       ),
     );
@@ -224,7 +224,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   Widget _buildTotalAmountCard(double totalAmount) {
     return Card(
       elevation: 0,
-      color: _selectedTab == 'Chi tiêu'
+      color: _selectedTab == 'Expense'
           ? AppTheme.error.withOpacity(0.08)
           : AppTheme.primaryGreen.withOpacity(0.08),
       shape: RoundedRectangleBorder(
@@ -235,7 +235,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         child: Column(
           children: [
             Text(
-              'Tổng ${_selectedTab.toLowerCase()}',
+              'Total ${_selectedTab.toLowerCase()}',
               style: const TextStyle(
                 fontSize: 14,
                 color: Colors.black54,
@@ -244,7 +244,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '${NumberFormat('#,###').format(totalAmount)} VND',
+              '${NumberFormat('#,###').format(totalAmount)} USD',
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -268,7 +268,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         ),
         child: Center(
           child: Text(
-            'Không có dữ liệu ${_selectedTab.toLowerCase()} trong tháng này',
+            'No ${_selectedTab.toLowerCase()} data this month',
             style: TextStyle(color: Colors.grey[600]),
           ),
         ),
@@ -297,7 +297,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Tổng cộng',
+                    'Total',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -305,7 +305,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${NumberFormat('#,###').format(totalAmount)} VND',
+                    '${NumberFormat('#,###').format(totalAmount)} USD',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -359,7 +359,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
       final showLabel = percentage >= 3; // Giảm ngưỡng hiển thị phần trăm
       final color = colors[colorIndex % colors.length];
 
-      // Tự động điều chỉnh màu chữ dựa trên độ sáng của màu nền
+      // Automatically adjust text color based on background color brightness
       final isLightColor = color.computeLuminance() > 0.5;
 
       sections.add(
@@ -426,7 +426,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Chi tiết danh mục',
+            'Category Details',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -444,7 +444,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    // Màu đại diện
+                    // Color indicator
                     Container(
                       width: 16,
                       height: 16,
@@ -455,7 +455,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    // Tên danh mục
+                    // Category name
                     Expanded(
                       flex: 4,
                       child: Text(
@@ -467,7 +467,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Phần trăm
+                    // Percentage
                     SizedBox(
                       width: 50,
                       child: Text(
@@ -480,7 +480,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                         textAlign: TextAlign.right,
                       ),
                     ),
-                    // Số tiền
+                    // Amount
                     const SizedBox(width: 8),
                     Text(
                       '${NumberFormat('#,###').format(entry.value)}',
@@ -495,7 +495,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             },
           ),
           const SizedBox(height: 8),
-          // Tổng cộng
+          // Total
           Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
             decoration: BoxDecoration(
@@ -508,14 +508,14 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Tổng ${_selectedTab.toLowerCase()}:',
+                  'Total ${_selectedTab.toLowerCase()}:',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 Text(
-                  '${NumberFormat('#,###').format(total)} VND',
+                  '${NumberFormat('#,###').format(total)} USD',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -539,7 +539,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Danh mục',
+          'Categories',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -583,7 +583,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             ),
             child: Icon(
               _getCategoryIcon(category),
-              color: _selectedTab == 'Chi tiêu'
+              color: _selectedTab == 'Expense'
                   ? AppTheme.error
                   : AppTheme.primaryGreen,
             ),
@@ -607,7 +607,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
                     value: percentage / 100,
                     backgroundColor: Colors.grey[200],
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      _selectedTab == 'Chi tiêu'
+                      _selectedTab == 'Expense'
                           ? AppTheme.error
                           : AppTheme.primaryGreen,
                     ),
@@ -622,7 +622,7 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                '${NumberFormat('#,###').format(amount)} VND',
+                '${NumberFormat('#,###').format(amount)} USD',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -646,21 +646,21 @@ class _SpendingAnalysisScreenState extends State<SpendingAnalysisScreen> {
   IconData _getCategoryIcon(String category) {
     // Add your category to icon mapping here
     switch (category.toLowerCase()) {
-      case 'ăn uống':
+      case 'dining':
         return Icons.restaurant;
-      case 'mua sắm':
+      case 'shopping':
         return Icons.shopping_bag;
-      case 'di chuyển':
+      case 'transportation':
         return Icons.directions_car;
-      case 'nhà cửa':
+      case 'housing':
         return Icons.home;
-      case 'hóa đơn':
+      case 'bills':
         return Icons.receipt;
-      case 'giải trí':
+      case 'entertainment':
         return Icons.movie;
-      case 'lương':
+      case 'salary':
         return Icons.work;
-      case 'thưởng':
+      case 'bonus':
         return Icons.card_giftcard;
       default:
         return Icons.category;

@@ -5,7 +5,7 @@ class Validators {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return false;
 
-    // Không cho khoảng trắng, bắt buộc có 1 '@' và 1 dấu '.'
+    // No whitespace, must have exactly one '@' and one '.'
     final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
     return emailRegex.hasMatch(trimmed);
   }
@@ -15,7 +15,7 @@ class Validators {
     return value.trim().length >= 3;
   }
 
-  /// DOB must match yyyy-mm-dd and parse được thành DateTime.
+  /// DOB must match yyyy-mm-dd and be parsable to DateTime.
   static bool isValidDob(String value) {
     final trimmed = value.trim();
     final dobRegex = RegExp(r'^\d{4}-\d{2}-\d{2}$');

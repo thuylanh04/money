@@ -23,10 +23,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _isSending = false;
   final ScrollController _scrollController = ScrollController();
   final List<String> _suggestedQuestions = [
-    "Kế hoạch học 4 tuần cho người mới?",
-    "Chọn ván và buồm phù hợp?",
-    "Hướng dẫn kỹ thuật waterstart",
-    "Kiểm tra an toàn trước khi ra biển"
+    "4-week learning plan for beginners?",
+    "How to choose the right board and sail?",
+    "Waterstart technique guide",
+    "Safety check before going to the sea"
   ];
 
   @override
@@ -34,7 +34,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.initState();
     // Add welcome message with a delay
     Future.delayed(const Duration(milliseconds: 500), () {
-      _addBotMessage("Xin chào! Tôi là WindSurf Coach AI. Tôi có thể giúp gì cho bạn hôm nay?");
+      _addBotMessage("Hello! I am WindSurf Coach AI. How can I help you today?");
       _showSuggestedQuestions();
     });
   }
@@ -57,7 +57,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     Future.delayed(const Duration(milliseconds: 300), () {
       setState(() {
         _messages.insert(0, ChatMessage(
-          text: "Bạn có thể hỏi tôi về:",
+          text: "You can ask me about:",
           isUser: false
         ));
         _scrollToBottom();
@@ -72,81 +72,81 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     // Simple responses based on keywords
     prompt = prompt.toLowerCase();
     
-    if (prompt.contains('xin chào') || prompt.contains('hello') || prompt.contains('hi')) {
-      return 'Xin chào! Tôi là WindSurf Coach AI. Tôi có thể giúp bạn với các vấn đề về lướt ván buồm, từ cơ bản đến nâng cao.';
+    if (prompt.contains('hello') || prompt.contains('hi')) {
+      return 'Hello! I am WindSurf Coach AI. I can help you with windsurfing topics, from basic to advanced.';
     }
-    if (prompt.contains('kế hoạch') || prompt.contains('học') || prompt.contains('bắt đầu')) {
-      return '''Kế hoạch 4 tuần cho người mới bắt đầu:
+    if (prompt.contains('plan') || prompt.contains('learn') || prompt.contains('beginner')) {
+      return '''4-Week Beginner's Plan:
       
-Tuần 1: Làm quen với thiết bị
-- Tập thăng bằng trên ván
-- Làm quen với gió và buồm
-- Thời gian: 3-4 buổi, mỗi buổi 1-2 tiếng
+Week 1: Getting to Know the Equipment
+- Practice balancing on the board
+- Get familiar with wind and sail
+- Time: 3-4 sessions, 1-2 hours each
 
-Tuần 2: Kỹ thuật cơ bản
-- Cách cầm và điều khiển buồm
-- Di chuyển cơ bản
-- Tập quay đầu đơn giản
+Week 2: Basic Techniques
+- How to hold and control the sail
+- Basic movements
+- Practice simple turns
 
-Tuần 3: Nâng cao kỹ năng
-- Kỹ thuật quay nhanh
-- Điều chỉnh tốc độ
-- Xử lý tình huống
+Week 3: Skill Improvement
+- Quick turn techniques
+- Speed adjustment
+- Handling different situations
 
-Tuần 4: Thực hành nâng cao
-- Tập lướt với tốc độ
-- Kỹ thuật nhảy cơ bản
-- An toàn khi lướt sóng''';
+Week 4: Advanced Practice
+- Speed sailing practice
+- Basic jumping techniques
+- Surfing safety''';
     }
-    if (prompt.contains('ván') || prompt.contains('buồm') || prompt.contains('thiết bị')) {
-      return '''Để chọn thiết bị phù hợp, tôi cần biết:
-- Cân nặng của bạn là bao nhiêu?
-- Bạn đã từng lướt ván buồm chưa?
-- Điều kiện gió nơi bạn thường lướt?
+    if (prompt.contains('board') || prompt.contains('sail') || prompt.contains('equipment')) {
+      return '''To choose the right equipment, I need to know:
+- What is your weight?
+- Have you ever windsurfed before?
+- Wind conditions where you usually surf?
 
-Thông thường:
-- Người mới nên dùng ván to (180-220L) để dễ giữ thăng bằng
-- Buồm nên chọn từ 3.5m² - 5.0m² tùy điều kiện gió''';
+General guidelines:
+- Beginners should use a larger board (180-220L) for better balance
+- Sail size should be between 3.5m² - 5.0m² depending on wind conditions''';
     }
-    if (prompt.contains('waterstart') || prompt.contains('kỹ thuật') || prompt.contains('lướt')) {
-      return '''Hướng dẫn kỹ thuật Waterstart cơ bản:
+    if (prompt.contains('waterstart') || prompt.contains('technique') || prompt.contains('surfing')) {
+      return '''Basic Waterstart Technique Guide:
 
-1. Chuẩn bị:
-- Đứng ở vị trí cân bằng trên ván
-- Hai tay nắm chặt dây buồm
-- Đầu gối hơi khuỵu
+1. Preparation:
+- Stand in a balanced position on the board
+- Hold the sail lines firmly with both hands
+- Keep your knees slightly bent
 
-2. Thực hiện:
-- Kéo buồm lên từ từ bằng tay sau
-- Dùng chân đẩy mạnh để đứng lên
-- Giữ thăng bằng và hướng ván theo chiều gió
+2. Execution:
+- Pull the sail up slowly with your back hand
+- Push up strongly with your legs to stand
+- Maintain balance and point the board with the wind
 
-Lưu ý:
-- Luôn đội mũ bảo hiểm
-- Mặc áo phao
-- Kiểm tra thiết bị trước khi ra khơi''';
+Important Notes:
+- Always wear a helmet
+- Wear a life jacket
+- Check equipment before going out to sea''';
     }
-    if (prompt.contains('an toàn') || prompt.contains('kiểm tra')) {
-      return '''Checklist an toàn trước khi lướt:
+    if (prompt.contains('safety') || prompt.contains('check')) {
+      return '''Pre-Surfing Safety Checklist:
 
-1. Kiểm tra thời tiết:
-- Tốc độ gió phù hợp
-- Hướng gió và thủy triều
-- Dự báo thời tiết
+1. Weather Check:
+- Appropriate wind speed
+- Wind direction and tides
+- Weather forecast
 
-2. Thiết bị:
-- Áo phao đã đeo
-- Dây an toàn gắn vào ván
-- Buồm không rách, dây không mục
+2. Equipment:
+- Life jacket is worn
+- Safety leash attached to the board
+- Sail is not torn, lines are not worn out
 
-3. Bản thân:
-- Đã khởi động kỹ
-- Mặc đồ bảo hộ đầy đủ
-- Không uống rượu bia trước khi lướt''';
+3. Personal:
+- Proper warm-up done
+- Wearing all protective gear
+- No alcohol before surfing''';
     }
     
     // Default response
-    return 'Tôi là WindSurf Coach AI. Tôi có thể giúp bạn với các vấn đề về lướt ván buồm, kỹ thuật, thiết bị và an toàn. Bạn cần hỗ trợ gì cụ thể?';
+    return 'I am WindSurf Coach AI. I can help you with windsurfing topics, techniques, equipment, and safety. What specific assistance do you need?';
   }
 
   void _sendMessage(String text) async {
@@ -212,14 +212,14 @@ Lưu ý:
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Chào mừng đến với WindSurf Coach AI',
+                            'Welcome to WindSurf Coach AI',
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: textColor,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Hỏi tôi bất cứ điều gì về lướt ván buồm!',
+                            'Ask me anything about windsurfing!',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.hintColor,
                             ),
@@ -366,7 +366,7 @@ Lưu ý:
               child: TextField(
                 controller: _controller,
                 decoration: InputDecoration(
-                  hintText: 'Nhập câu hỏi về lướt ván buồm...',
+                  hintText: 'Ask a question about windsurfing...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,

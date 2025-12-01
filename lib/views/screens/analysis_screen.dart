@@ -3,12 +3,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:money_manage/models/chart_data.dart';
 import 'package:money_manage/services/transaction_service.dart';
 import 'package:money_manage/models/transaction.dart';
-// Giả định file AppTheme tồn tại để sử dụng màu sắc
+// Assuming AppTheme file exists for color usage
 import 'package:money_manage/theme/app_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
-// CHUYỂN TỪ StatelessWidget SANG StatefulWidget
+// CHANGED FROM StatelessWidget TO StatefulWidget
 class AnalysisScreen extends StatefulWidget {
   const AnalysisScreen({Key? key}) : super(key: key);
 
@@ -17,20 +17,20 @@ class AnalysisScreen extends StatefulWidget {
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
-  // Biến trạng thái cho bộ lọc thời gian
+  // State variables for time filter
   late List<Map<String, dynamic>> _timeFilters;
   late Map<String, dynamic> _selectedFilter;
   final ScrollController _scrollController = ScrollController();
 
-  // Trạng thái phân tích (Chi tiêu/Thu nhập)
+  // Analysis state (Expense/Income)
   bool _isExpenseAnalysis = true;
   bool _isLoading = true;
 
-  // Lưu trữ riêng dữ liệu chi tiêu và thu nhập
+  // Store expense and income data separately
   List<ChartData> _expenseData = [];
   List<ChartData> _incomeData = [];
 
-  // Getter để lấy dữ liệu hiện tại
+  // Getter to get current data
   List<ChartData> get _currentData =>
       _isExpenseAnalysis ? _expenseData : _incomeData;
 
@@ -39,7 +39,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     super.initState();
     _scrollController.addListener(_scrollListener);
     _initializeTimeFilters();
-    _loadBothChartData(); // Tải cả 2 loại dữ liệu
+    _loadBothChartData(); // Load both types of data
   }
 
   @override
@@ -49,10 +49,10 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   }
 
   void _scrollListener() {
-    // Xử lý sự kiện scroll nếu cần
+    // Handle scroll event if needed
   }
 
-  // Tải dữ liệu biểu đồ bằng cách lấy transactions và gộp theo danh mục
+  // Load chart data by getting transactions and grouping by category
   Future<void> _loadBothChartData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -120,7 +120,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     }
   }
 
-  // Chuyển đổi giữa chi tiêu và thu nhập
+  // Toggle between expense and income
   void _toggleAnalysisType(bool isExpense) {
     if (_isExpenseAnalysis != isExpense) {
       setState(() {
@@ -129,11 +129,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     }
   }
 
-  // Khởi tạo bộ lọc thời gian (12 tháng gần nhất)
+  // Initialize time filter (last 12 months)
   void _initializeTimeFilters() {
     final now = DateTime.now();
 
-    // Tạo danh sách 12 tháng từ tháng hiện tại lùi về
+    // Create a list of 12 months from current month backwards
     _timeFilters = List.generate(12, (index) {
       final date = DateTime(now.year, now.month - index, 1);
       final monthName = DateFormat('MMM yyyy').format(date);
@@ -146,22 +146,22 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       };
     }).reversed.toList();
 
-    // Set tháng hiện tại là mặc định (phần tử cuối cùng)
+    // Set current month as default (last element)
     _selectedFilter = _timeFilters.last;
 
-    // Tự động cuộn đến tháng hiện tại sau khi UI được build xong
+    // Auto-scroll to current month after UI is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToSelectedMonth();
     });
   }
 
-  // Cuộn đến tháng được chọn
+  // Scroll to selected month
   void _scrollToSelectedMonth() {
     if (_scrollController.hasClients) {
       final index = _timeFilters
           .indexWhere((filter) => filter['key'] == _selectedFilter['key']);
       if (index != -1) {
-        final double itemWidth = 100.0; // Chiều rộng ước tính của mỗi mục lọc
+        final double itemWidth = 100.0; // Estimated width of each filter item
         final double screenWidth = MediaQuery.of(context).size.width;
         final double scrollPosition =
             (itemWidth * index) - (screenWidth / 2) + (itemWidth / 2);
@@ -175,13 +175,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     }
   }
 
-  // Widget hiển thị Tổng tiền (Chi tiêu/Thu nhập)
+  // Widget to display Total (Expense/Income)
   Widget _buildTotalExpenseCard(double totalAmount) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _isExpenseAnalysis ? 'Tổng chi tiêu' : 'Tổng thu nhập',
+          _isExpenseAnalysis ? 'Total Expenses' : 'Total Income',
           style: const TextStyle(
             fontSize: 14,
             color: Colors.grey,
@@ -190,27 +190,27 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          '${_formatCurrency(totalAmount)} VND',
+          '${_formatCurrency(totalAmount)} USD',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
             color: _isExpenseAnalysis
-                ? Colors.red[700] // Màu đỏ cho chi tiêu
-                : Colors.green[700], // Màu xanh lá cho thu nhập
+                ? Colors.red[700] // Red for expenses
+                : Colors.green[700], // Green for income
           ),
         ),
       ],
     );
   }
 
-  // Tải dữ liệu biểu đồ dựa trên bộ lọc được chọn
+  // Load chart data based on selected filter
   void _loadChartData() {
     _loadBothChartData();
   }
 
-  // Áp dụng bộ lọc mới và tải lại dữ liệu
+  // Apply new filter and reload data
   void _applyFilter(Map<String, dynamic> filter) {
-    // Không tải lại nếu bộ lọc không thay đổi
+    // Don't reload if filter hasn't changed
     if (_selectedFilter['key'] == filter['key']) return;
 
     setState(() {
@@ -221,31 +221,31 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     _scrollToSelectedMonth();
   }
 
-  // Helper method để định dạng tiền tệ (VD: 1,000,000)
+  // Helper method to format currency (e.g., 1,000,000)
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,##0', 'vi_VN');
     return formatter.format(amount);
   }
 
-  // Helper method để lấy màu cho danh mục (Đã chỉnh màu khớp)
+  // Helper method to get color for category (Matched colors)
   Color _getColorForCategory(String category) {
-    // Dùng mã màu Hex/RGB cụ thể để đảm bảo tính nhất quán
+    // Use specific Hex/RGB colors to ensure consistency
     final colors = {
-      // Màu Xanh Lá (Green) cho Ăn uống
+      // Green for Food & Drinks
       'Ăn uống': const Color(0xFF4CAF50),
-      // Màu Xanh Dương (Blue) cho Mua sắm
+      // Blue for Shopping
       'Mua sắm': const Color(0xFF2196F3),
-      // Màu Cam (Orange) cho Di chuyển
+      // Orange for Transportation
       'Di chuyển': const Color(0xFFFF9800),
-      // Màu Tím (Purple) cho Giải trí
+      // Purple for Entertainment
       'Giải trí': const Color(0xFF9C27B0),
-      // Màu Xám Xanh (Blue Grey) cho Khác
+      // Blue Grey for Others
       'Khác': const Color(0xFF607D8B),
     };
     return colors[category] ?? Colors.grey;
   }
 
-  // Widget xây dựng nút chuyển đổi giữa Chi tiêu và Thu nhập
+  // Widget to build toggle button between Expense and Income
   Widget _buildAnalysisTypeToggle() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -255,7 +255,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       ),
       child: Row(
         children: [
-          // Nút Chi tiêu
+          // Expense Button
           Expanded(
             child: GestureDetector(
               onTap: () => _toggleAnalysisType(true),
@@ -270,7 +270,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    'Chi tiêu',
+                    'Expenses',
                     style: TextStyle(
                       color:
                           _isExpenseAnalysis ? Colors.white : Colors.grey[700],
@@ -283,7 +283,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               ),
             ),
           ),
-          // Nút Thu nhập
+          // Income Button
           Expanded(
             child: GestureDetector(
               onTap: () => _toggleAnalysisType(false),
@@ -298,7 +298,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    'Thu nhập',
+                    'Income',
                     style: TextStyle(
                       color:
                           !_isExpenseAnalysis ? Colors.white : Colors.grey[700],
@@ -318,7 +318,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Tính tổng tiền (chi tiêu hoặc thu nhập) của tháng hiện tại
+    // Calculate total amount (expense or income) for current month
     final totalAmount =
         _currentData.fold<double>(0, (sum, item) => sum + item.amount);
 
@@ -326,7 +326,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       appBar: AppBar(
         title: const Text('Analysis'),
         centerTitle: true,
-        // Thanh lọc thời gian và nút chuyển đổi
+        // Time filter and toggle button
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(100),
           child: Column(
@@ -346,28 +346,28 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                 children: [
                   const SizedBox(height: 12),
 
-                  // THẺ TỔNG TIỀN Ở TRÊN CÙNG
+                  // TOTAL AMOUNT CARD AT THE TOP
                   _buildTotalExpenseCard(totalAmount),
 
                   const SizedBox(height: 24),
 
-                  // Hiển thị Biểu đồ hoặc Thông báo rỗng
+                  // Display Chart or Empty Message
                   _currentData.isEmpty
                       ? Center(
                           child: Text(
                             _isExpenseAnalysis
-                                ? 'Không có chi tiêu nào trong ${_selectedFilter['label']}'
-                                : 'Không có thu nhập nào trong ${_selectedFilter['label']}',
+                                ? 'No expenses in ${_selectedFilter['label']}'
+                                : 'No income in ${_selectedFilter['label']}',
                             style: const TextStyle(
                                 fontSize: 16, color: Colors.grey),
                           ),
                         )
-                      // HIỂN THỊ BIỂU ĐỒ
+                      // DISPLAY CHART
                       : _buildExpenseChart(_currentData, totalAmount),
 
                   const SizedBox(height: 24),
 
-                  // Danh sách chi tiết
+                  // Details list
                   if (_currentData.isNotEmpty) _buildExpenseList(_currentData),
                 ],
               ),
@@ -375,7 +375,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  // Widget xây dựng thanh lọc thời gian
+  // Widget to build time filter bar
   Widget _buildTimeFilterBar(BuildContext context) {
     return Container(
       height: 60,
@@ -419,7 +419,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  // Widget xây dựng biểu đồ tròn
+  // Widget to build pie chart
   Widget _buildExpenseChart(List<ChartData> data, double totalAmount) {
     return Center(
       child: SizedBox(
@@ -442,25 +442,25 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  // Hàm tạo các lát cắt cho PieChart
+  // Function to create slices for PieChart
   List<PieChartSectionData> _chartSections(List<ChartData> data) {
-    // Hàm tạo màu ngẫu nhiên dựa trên tên danh mục
+    // Function to generate random color based on category name
     Color getColorForCategory(String category, bool isExpense) {
-      // Tạo một mã băm từ tên danh mục để đảm bảo tính nhất quán
+      // Create a hash from category name to ensure consistency
       final hash = category.hashCode.abs();
 
-      // Chọn bảng màu dựa trên loại (chi tiêu hoặc thu nhập)
+      // Choose color palette based on type (expense or income)
       final hueRange = isExpense
-          ? const [0, 60] // Đỏ đến vàng
-          : [80, 180]; // Xanh lá đến xanh dương
+          ? const [0, 60] // Red to yellow
+          : [80, 180]; // Green to blue
 
-      // Tạo màu dựa trên mã băm
+      // Generate color based on hash
       return HSLColor.fromAHSL(
-        1.0, // Độ trong suốt
+        1.0, // Opacity
         (hash % (hueRange[1] - hueRange[0]) + hueRange[0])
-            .toDouble(), // Màu sắc
-        0.7, // Độ bão hòa
-        0.6, // Độ sáng
+            .toDouble(), // Hue
+        0.7, // Saturation
+        0.6, // Lightness
       ).toColor();
     }
 
@@ -481,13 +481,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     }).toList();
   }
 
-  // Widget xây dựng danh sách chi tiết
+  // Widget to build details list
   Widget _buildExpenseList(List<ChartData> data) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          _isExpenseAnalysis ? 'Chi tiết chi tiêu' : 'Chi tiết thu nhập',
+          _isExpenseAnalysis ? 'Expense Details' : 'Income Details',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -499,50 +499,31 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 
-  // Widget xây dựng từng mục chi tiêu trong danh sách
+  // Widget to build each expense/income item in the list
   Widget _buildExpenseItem(ChartData item) {
-    // GIẢ ĐỊNH: Số lượng giao dịch là hằng số hoặc được lấy từ service
-    const int transactionCount = 7;
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Danh mục và số giao dịch
+          // Category name
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.category,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$transactionCount Transactions',
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey, // Giả định AppTheme.textSecondary
-                  ),
-                ),
-              ],
+            child: Text(
+              item.category,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          // Số tiền chi tiêu
+          // Amount
           Text(
-            '${_isExpenseAnalysis ? '-' : '+'}${_formatCurrency(item.amount)} VND',
+            '${_isExpenseAnalysis ? '-' : '+'}${_formatCurrency(item.amount)} USD',
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(width: 8),
-          const Icon(Icons.arrow_forward_ios_rounded,
-              size: 14, color: Colors.grey),
         ],
       ),
     );

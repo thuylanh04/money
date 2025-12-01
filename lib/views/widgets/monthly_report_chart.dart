@@ -107,6 +107,7 @@ class MonthlyReportChart extends StatelessWidget {
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      reservedSize: 70,
                       // interval must not be zero; using computed non-zero maxValue above
                       interval: maxValue / 5,
                       getTitlesWidget: (value, meta) {
@@ -140,7 +141,7 @@ class MonthlyReportChart extends StatelessWidget {
                       BarChartRodData(
                         toY: income,
                         color: const Color(0xFF4CAF50),
-                        width: barWidth,
+                        width: 40,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(4),
                           topRight: Radius.circular(4),
@@ -154,7 +155,7 @@ class MonthlyReportChart extends StatelessWidget {
                       BarChartRodData(
                         toY: expense,
                         color: const Color(0xFFF44336),
-                        width: barWidth,
+                        width: 40,
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(4),
                           topRight: Radius.circular(4),

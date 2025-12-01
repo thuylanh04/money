@@ -2,63 +2,63 @@ import 'package:money_manage/models/chart_data.dart';
 import 'package:intl/intl.dart'; // Cần thêm import này nếu chưa có
 
 class ChartService {
-  // Dữ liệu mẫu (Mock data) cho từng tháng (Tháng 12, 11, 10 năm 2025)
+  // Sample data (Mock data) for each month (December, November, October 2025)
   static final Map<String, List<ChartData>> _monthlyExpenseData = {
-    // Dữ liệu cho Tháng 12 năm 2025 (Tháng hiện tại - tổng 7,000,000 VND)
+    // Data for December 2025 (Current month - total 7,000,000 USD)
     '2025-12': [
       ChartData(
-        category: 'Ăn uống',
-        amount: 2500000, // Đã sửa lỗi số tiền
+        category: 'Dining',
+        amount: 2500000, // Fixed amount
         percentage: 35,
         icon: '🍽️',
       ),
       ChartData(
-        category: 'Mua sắm',
+        category: 'Shopping',
         amount: 1800000,
         percentage: 25,
         icon: '🛍️',
       ),
       ChartData(
-        category: 'Di chuyển',
+        category: 'Transportation',
         amount: 1200000,
         percentage: 17,
         icon: '🚗',
       ),
       ChartData(
-        category: 'Giải trí',
+        category: 'Entertainment',
         amount: 900000,
         percentage: 13,
         icon: '🎬',
       ),
       ChartData(
-        category: 'Khác',
+        category: 'Other',
         amount: 600000,
         percentage: 10,
         icon: '🏠',
       ),
     ],
 
-    // Dữ liệu cho Tháng 11 năm 2025 (tổng 6,500,000 VND)
+    // Data for November 2025 (total 6,500,000 USD)
     '2025-11': [
       ChartData(
-          category: 'Ăn uống', amount: 3000000, percentage: 46.15, icon: '🍽️'),
+          category: 'Dining', amount: 3000000, percentage: 46.15, icon: '🍽️'),
       ChartData(
-          category: 'Mua sắm', amount: 1000000, percentage: 15.38, icon: '🛍️'),
+          category: 'Shopping', amount: 1000000, percentage: 15.38, icon: '🛍️'),
       ChartData(
-          category: 'Di chuyển',
+          category: 'Transportation',
           amount: 1500000,
           percentage: 23.08,
           icon: '🚗'),
       ChartData(
-          category: 'Giải trí', amount: 500000, percentage: 7.69, icon: '🎬'),
-      ChartData(category: 'Khác', amount: 500000, percentage: 7.69, icon: '🏠'),
+          category: 'Entertainment', amount: 500000, percentage: 7.69, icon: '🎬'),
+      ChartData(category: 'Other', amount: 500000, percentage: 7.69, icon: '🏠'),
     ],
 
-    // Dữ liệu cho Tháng 10 năm 2025 (tổng 1,000,000 VND)
+    // Data for October 2025 (total 1,000,000 USD)
     '2025-10': [
       ChartData(
-          category: 'Ăn uống', amount: 500000, percentage: 50, icon: '🍽️'),
-      ChartData(category: 'Khác', amount: 500000, percentage: 50, icon: '🏠'),
+          category: 'Dining', amount: 500000, percentage: 50, icon: '🍽️'),
+      ChartData(category: 'Other', amount: 500000, percentage: 50, icon: '🏠'),
     ],
   };
 
@@ -67,24 +67,24 @@ class ChartService {
     final targetYear = year ?? now.year;
     final targetMonth = month ?? now.month;
 
-    // 1. Tạo khóa tìm kiếm thực tế: 'YYYY-MM'
+    // 1. Create actual search key: 'YYYY-MM'
     final key = '$targetYear-${targetMonth.toString().padLeft(2, '0')}';
 
-    // Sử dụng toán tử null-aware (??) để cung cấp giá trị mặc định là danh sách rỗng nếu không tìm thấy
+    // Use null-aware operator (??) to provide an empty list as default if not found
     List<ChartData> data = _monthlyExpenseData[key] ?? [];
 
-    // 2. Nếu không có dữ liệu thực tế (dữ liệu rỗng), thử lấy dữ liệu mock (giả định năm 2025)
+    // 2. If there's no actual data (empty data), try to get mock data (assuming year 2025)
     if (data.isEmpty) {
       final mockKey = '2025-${targetMonth.toString().padLeft(2, '0')}';
       data = _monthlyExpenseData[mockKey] ?? [];
     }
 
-    // 3. Nếu vẫn không có dữ liệu sau khi kiểm tra mock, trả về danh sách rỗng
+    // 3. If there's still no data after checking mock, return an empty list
     if (data.isEmpty) {
       return [];
     }
 
-    // TÍNH TOÁN LẠI PERCENTAGE
+    // RECALCULATE PERCENTAGE
     final totalAmount = data.fold<double>(0, (sum, item) => sum + item.amount);
 
     // Tránh chia cho 0
@@ -96,61 +96,61 @@ class ChartService {
       return ChartData(
         category: item.category,
         amount: item.amount,
-        // Cập nhật percentage được tính toán lại và làm tròn
+        // Update the recalculated and rounded percentage
         percentage: calculatedPercentage.roundToDouble(),
         icon: item.icon,
       );
     }).toList();
   }
 
-  // Phương thức mẫu khác (giữ nguyên)
+  // Other sample method (keep as is)
   static List<Map<String, dynamic>> getMonthlyData() {
     return [
-      {'month': 'T9', 'expense': 8000000, 'income': 15000000},
-      {'month': 'T10', 'expense': 12000000, 'income': 18000000},
-      {'month': 'T11', 'expense': 15000000, 'income': 20000000},
-      {'month': 'T12', 'expense': 18000000, 'income': 22000000},
+      {'month': 'Sep', 'expense': 8000000, 'income': 15000000},
+      {'month': 'Oct', 'expense': 12000000, 'income': 18000000},
+      {'month': 'Nov', 'expense': 15000000, 'income': 20000000},
+      {'month': 'Dec', 'expense': 18000000, 'income': 22000000},
     ];
   }
 
-  // Thêm dữ liệu mẫu cho thu nhập
+  // Add sample data for income
   static final Map<String, List<ChartData>> _monthlyIncomeData = {
     '2025-12': [
       ChartData(
-        category: 'Lương',
+        category: 'Salary',
         amount: 15000000,
         percentage: 75,
         icon: '💰',
       ),
       ChartData(
-        category: 'Đầu tư',
+        category: 'Investment',
         amount: 3000000,
         percentage: 15,
         icon: '📈',
       ),
       ChartData(
-        category: 'Làm thêm',
+        category: 'Part-time',
         amount: 2000000,
         percentage: 10,
         icon: '💼',
       ),
     ],
-    // Thêm dữ liệu cho các tháng khác nếu cần
+    // Add data for other months if needed
     '2025-11': [
       ChartData(
-        category: 'Lương',
+        category: 'Salary',
         amount: 15000000,
         percentage: 80,
         icon: '💰',
       ),
       ChartData(
-        category: 'Đầu tư',
+        category: 'Investment',
         amount: 2000000,
         percentage: 15,
         icon: '📈',
       ),
       ChartData(
-        category: 'Làm thêm',
+        category: 'Part-time',
         amount: 1000000,
         percentage: 5,
         icon: '💼',
@@ -158,19 +158,19 @@ class ChartService {
     ],
     '2025-10': [
       ChartData(
-        category: 'Lương',
+        category: 'Salary',
         amount: 15000000,
         percentage: 85,
         icon: '💰',
       ),
       ChartData(
-        category: 'Đầu tư',
+        category: 'Investment',
         amount: 1500000,
         percentage: 10,
         icon: '📈',
       ),
       ChartData(
-        category: 'Làm thêm',
+        category: 'Part-time',
         amount: 1000000,
         percentage: 5,
         icon: '💼',
@@ -178,19 +178,19 @@ class ChartService {
     ],
   };
 
-// Thêm phương thức mới để lấy dữ liệu thu nhập
+// Add a new method to get income data
   static Future<List<ChartData>> getIncomeChartData({int? year, int? month}) async {
     final now = DateTime.now();
     final targetYear = year ?? now.year;
     final targetMonth = month ?? now.month;
 
-    // Tạo khóa tìm kiếm thực tế: 'YYYY-MM'
+    // Create actual search key: 'YYYY-MM'
     final key = '$targetYear-${targetMonth.toString().padLeft(2, '0')}';
 
-    // Lấy dữ liệu thu nhập
+    // Get income data
     List<ChartData> data = _monthlyIncomeData[key] ?? [];
 
-    // Nếu không có dữ liệu, trả về dữ liệu mẫu
+    // If no data, return sample data
     if (data.isEmpty) {
       final mockKey = '2025-${targetMonth.toString().padLeft(2, '0')}';
       data = _monthlyIncomeData[mockKey] ?? [];
@@ -200,7 +200,7 @@ class ChartService {
       return [];
     }
 
-    // Tính toán lại phần trăm
+    // Recalculate the percentage
     final totalAmount = data.fold<double>(0, (sum, item) => sum + item.amount);
     if (totalAmount == 0) return data;
 

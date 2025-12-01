@@ -79,7 +79,8 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           child: FloatingActionButton(
             onPressed: () {
-              Navigator.of(context).pushNamed(TransactionDetailScreen.routeName);
+              Navigator.of(context)
+                  .pushNamed(TransactionDetailScreen.routeName);
             },
             backgroundColor: AppTheme.primaryGreen,
             child: const Icon(Icons.add, color: Colors.white),
@@ -154,16 +155,17 @@ class _HomeContentState extends State<_HomeContent> {
       double expense = 0;
 
       final now = DateTime.now();
-      final currentMonth = DateTime(now.year, now.month);
 
       for (var transaction in transactions) {
-        if (transaction.date.isAfter(currentMonth)) {
+        // normalize to local to avoid timezone mismatches
+        final txDate = transaction.date.toLocal();
+
+        // Kiểm tra chính xác cùng tháng/năm với thời điểm hiện tại
+        if (txDate.year == now.year && txDate.month == now.month) {
           if (transaction.groupType == 'income') {
-            income +=
-                transaction.amount.abs(); // Ensure positive amount for income
+            income += transaction.amount.abs();
           } else if (transaction.groupType == 'expense') {
-            expense +=
-                transaction.amount.abs(); // Ensure positive amount for expense
+            expense += transaction.amount.abs();
           }
         }
       }
@@ -273,13 +275,7 @@ class _HomeHeaderState extends State<_HomeHeader> {
             ),
           ],
         ),
-        Row(
-          children: const [
-            Icon(Icons.search),
-            SizedBox(width: 12),
-            Icon(Icons.notifications_outlined),
-          ],
-        ),
+        // Search and notification icons removed
       ],
     );
   }
@@ -665,6 +661,9 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
   }
 
   Widget _buildCategoryItem(String category, double amount, IconData icon) {
+    // Since this is the top spending section, all items are expenses
+    final isIncome = false;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -675,8 +674,14 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: AppTheme.primaryGreen.withOpacity(0.1),
-            child: Icon(icon, color: AppTheme.primaryGreen),
+            backgroundColor: isIncome 
+                ? Colors.green.withOpacity(0.1) 
+                : Colors.red.withOpacity(0.1),
+            child: Icon(
+              isIncome ? Icons.arrow_downward : Icons.arrow_upward,
+              color: isIncome ? Colors.green : Colors.red,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -686,11 +691,11 @@ class _TopSpendingSectionState extends State<_TopSpendingSection> {
             ),
           ),
           Text(
-            '\$${NumberFormat('#,###').format(amount)}',
-            style: const TextStyle(
+            '\$' + NumberFormat('#,###').format(amount),
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.red, // Expense color
+              color: isIncome ? Colors.green : Colors.red,
             ),
           ),
         ],
@@ -802,7 +807,6 @@ class _RecentTransactionsSectionState
 
   Widget _buildTransactionItem(Transaction transaction) {
     final isExpense = transaction.groupType != 'income';
-    final icon = _getCategoryIcon(transaction.categoryName ?? 'Other');
     final formattedDate = DateFormat('dd MMMM yyyy').format(transaction.date);
 
     return Container(
@@ -815,10 +819,11 @@ class _RecentTransactionsSectionState
         leading: CircleAvatar(
           backgroundColor: isExpense
               ? Colors.red.withOpacity(0.1)
-              : AppTheme.primaryGreen.withOpacity(0.1),
+              : Colors.green.withOpacity(0.1),
           child: Icon(
-            icon,
-            color: isExpense ? Colors.red : AppTheme.primaryGreen,
+            isExpense ? Icons.arrow_upward : Icons.arrow_downward,
+            color: isExpense ? Colors.red : Colors.green,
+            size: 20,
           ),
         ),
         title: Text(
@@ -833,7 +838,7 @@ class _RecentTransactionsSectionState
           '${isExpense ? '-' : '+'}\$${NumberFormat('#,###').format(transaction.amount)}',
           style: TextStyle(
             fontWeight: FontWeight.w600,
-            color: isExpense ? Colors.red : AppTheme.primaryGreen,
+            color: isExpense ? Colors.red : Colors.green,
           ),
         ),
         onTap: () {
