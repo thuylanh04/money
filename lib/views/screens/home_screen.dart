@@ -733,11 +733,13 @@ class _RecentTransactionsSectionState
       // Sort by date in descending order and take first 5
       transactions.sort((a, b) => b.date.compareTo(a.date));
 
+      if (!mounted) return;
       setState(() {
         _recentTransactions = transactions.take(5).toList();
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Failed to load recent transactions';
         _isLoading = false;

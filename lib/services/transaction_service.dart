@@ -73,10 +73,9 @@ class TransactionService {
     required double amount,
     required String date,
     String? note,
-    String? imagePath,
     required String categoryIdFE,
     required String walletIdFE,
-    File? imageFile,
+    List<File>? files,
   }) async {
     try {
       final userId = await StorageService.getUid();
@@ -90,45 +89,40 @@ class TransactionService {
         throw Exception('No authentication token found');
       }
 
-      // Create transaction data
-      final transaction = {
-        "idFE": "", // Server might generate this
+      // Create transaction payload matching updateTransaction
+      final transactionData = {
+        "idFE": "",
         "amount": amount,
-        "date": date.contains('T')
-            ? date.split('T')[0]
-            : date, // Ensure YYYY-MM-DD format
         "categoryIdFE": categoryIdFE,
         "walletIdFE": walletIdFE,
+        "date": DateTime.tryParse(date)?.toIso8601String() ?? date,
         "userIdFE": userId,
-        "note": note ?? '',
-        "image": imageFile?.path.split('/').last ?? '',
+        if (note != null && note.isNotEmpty) "note": note,
       };
 
-      // Create FormData
       final formData = FormData();
-
-      // Add transaction as JSON with proper content type
       formData.files.add(
         MapEntry(
           "transaction",
           MultipartFile.fromString(
-            jsonEncode(transaction),
+            jsonEncode(transactionData),
             contentType: MediaType("application", "json"),
           ),
         ),
       );
 
-      // Add image file if provided
-      if (imageFile != null) {
-        formData.files.add(
-          MapEntry(
-            "files",
-            await MultipartFile.fromFile(
-              imageFile.path,
-              filename: imageFile.path.split('/').last,
+      if (files != null && files.isNotEmpty) {
+        for (var file in files) {
+          formData.files.add(
+            MapEntry(
+              "files",
+              await MultipartFile.fromFile(
+                file.path,
+                filename: file.path.split('/').last,
+              ),
             ),
-          ),
-        );
+          );
+        }
       }
 
       // Send the request using Dio
@@ -272,7 +266,7 @@ class TransactionService {
     }
 
     final String url =
-        "https://2cd1c0bd7cdd.ngrok-free.app/api/v1/transactions";
+        "https://5d194e0ab2b2.ngrok-free.app/api/v1/transactions";
 
     final transactionData = {
       "idFE": transactionId,
@@ -353,5 +347,4 @@ class TransactionService {
       rethrow;
     }
   }
-
 }

@@ -12,7 +12,7 @@ abstract class AuthService {
     required String password,
     String? dob,
   });
-  
+
   Future<void> signOut();
   Future<bool> isSignedIn();
 }
@@ -22,16 +22,17 @@ class MockAuthService implements AuthService {
   Future<User> signIn({required String email, required String password}) async {
     await Future.delayed(const Duration(milliseconds: 600));
     final user = User(id: '1', name: 'Demo User', email: email);
-    await StorageService.saveToken('mock_token_${DateTime.now().millisecondsSinceEpoch}');
+    await StorageService.saveToken(
+        'mock_token_${DateTime.now().millisecondsSinceEpoch}');
     await StorageService.saveUid(user.id);
     return user;
   }
-  
+
   @override
   Future<void> signOut() async {
     await StorageService.clearAuthData();
   }
-  
+
   @override
   Future<bool> isSignedIn() async {
     final token = await StorageService.getToken();
@@ -46,7 +47,8 @@ class MockAuthService implements AuthService {
   }) async {
     await Future.delayed(const Duration(milliseconds: 600));
     final user = User(id: '1', name: 'New User', email: email);
-    await StorageService.saveToken('mock_token_${DateTime.now().millisecondsSinceEpoch}');
+    await StorageService.saveToken(
+        'mock_token_${DateTime.now().millisecondsSinceEpoch}');
     await StorageService.saveUid(user.id);
     return user;
   }
@@ -73,11 +75,11 @@ class ApiAuthService implements AuthService {
       if (result is Map<String, dynamic>) {
         final token = result['token'] as String?;
         final idFE = result['idFE'] as String?;
-        
+
         if (token != null && token.isNotEmpty) {
           EnvConfig.apiAuthHeader = 'Bearer $token';
           await StorageService.saveToken(token);
-          
+
           if (idFE != null && idFE.isNotEmpty) {
             // Extract just the email part from idFE (remove the timestamp)
             final emailMatch = RegExp(r'^[^@]+@[^@]+\.[^@]+').firstMatch(idFE);
@@ -85,7 +87,7 @@ class ApiAuthService implements AuthService {
             await StorageService.saveUid(userEmail);
             return User(id: idFE, name: email, email: userEmail);
           }
-          
+
           return User(id: 'unknown', name: email, email: email);
         }
       }
@@ -109,14 +111,17 @@ class ApiAuthService implements AuthService {
       'password': password,
       if (dob != null) 'dob': dob,
     });
-    
+
     try {
       final result = data['result'];
       if (result is Map<String, dynamic>) {
         final token = result['token'] as String?;
         final uid = result['uid'] as String?;
-        
-        if (token != null && token.isNotEmpty && uid != null && uid.isNotEmpty) {
+
+        if (token != null &&
+            token.isNotEmpty &&
+            uid != null &&
+            uid.isNotEmpty) {
           EnvConfig.apiAuthHeader = 'Bearer $token';
           await StorageService.saveToken(token);
           await StorageService.saveUid(uid);
@@ -128,13 +133,13 @@ class ApiAuthService implements AuthService {
     }
     throw Exception('Failed to sign up');
   }
-  
+
   @override
   Future<void> signOut() async {
     EnvConfig.apiAuthHeader = '';
     await StorageService.clearAuthData();
   }
-  
+
   @override
   Future<bool> isSignedIn() async {
     final token = await StorageService.getToken();

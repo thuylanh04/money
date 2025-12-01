@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:money_manage/models/chart_data.dart';
-import 'package:money_manage/services/chart_service.dart';
+import 'package:money_manage/services/transaction_service.dart';
+import 'package:money_manage/models/transaction.dart';
 // Giả định file AppTheme tồn tại để sử dụng màu sắc
 import 'package:money_manage/theme/app_theme.dart';
 import 'package:intl/intl.dart';
@@ -30,7 +31,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   List<ChartData> _incomeData = [];
 
   // Getter để lấy dữ liệu hiện tại
-  List<ChartData> get _currentData => _isExpenseAnalysis ? _expenseData : _incomeData;
+  List<ChartData> get _currentData =>
+      _isExpenseAnalysis ? _expenseData : _incomeData;
 
   @override
   void initState() {
@@ -50,7 +52,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     // Xử lý sự kiện scroll nếu cần
   }
 
-  // Tải song song dữ liệu chi tiêu và thu nhập
+  // Tải dữ liệu biểu đồ bằng cách lấy transactions và gộp theo danh mục
   Future<void> _loadBothChartData() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -59,24 +61,61 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final month = _selectedFilter['month'] as int;
 
     try {
-      final expenseFuture = ChartService.getExpenseChartData(year: year, month: month);
-      final incomeFuture = ChartService.getIncomeChartData(year: year, month: month);
+      final service = TransactionService();
+      final transactions = await service.getUserTransactions();
 
-      final results = await Future.wait([expenseFuture, incomeFuture]);
+      // Filter transactions for the selected month/year
+      final filtered = transactions
+          .where((t) => t.date.year == year && t.date.month == month);
+
+      // Aggregate amounts per category for expense and income separately
+      final Map<String, double> expenseMap = {};
+      final Map<String, double> incomeMap = {};
+
+      double totalExpense = 0.0;
+      double totalIncome = 0.0;
+
+      for (final t in filtered) {
+        final category = t.categoryName ?? 'Others';
+        final amt = t.amount.abs();
+        if (t.groupType != null && t.groupType!.toLowerCase() == 'income') {
+          incomeMap[category] = (incomeMap[category] ?? 0) + amt;
+          totalIncome += amt;
+        } else {
+          expenseMap[category] = (expenseMap[category] ?? 0) + amt;
+          totalExpense += amt;
+        }
+      }
+
+      // Convert maps to ChartData lists
+      final expenseList = expenseMap.entries.map((e) {
+        final amount = e.value;
+        final percentage =
+            totalExpense > 0 ? (amount / totalExpense) * 100 : 0.0;
+        return ChartData(
+            category: e.key, amount: amount, percentage: percentage, icon: '');
+      }).toList()
+        ..sort((a, b) => b.amount.compareTo(a.amount));
+
+      final incomeList = incomeMap.entries.map((e) {
+        final amount = e.value;
+        final percentage = totalIncome > 0 ? (amount / totalIncome) * 100 : 0.0;
+        return ChartData(
+            category: e.key, amount: amount, percentage: percentage, icon: '');
+      }).toList()
+        ..sort((a, b) => b.amount.compareTo(a.amount));
 
       if (!mounted) return;
-      
       setState(() {
-        _expenseData = results[0];
-        _incomeData = results[1];
+        _expenseData = expenseList;
+        _incomeData = incomeList;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      // Xử lý lỗi nếu cần
       if (kDebugMode) {
-        print('Error loading chart data: $e');
+        print('Error loading chart data from transactions: $e');
       }
     }
   }
@@ -109,25 +148,24 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
     // Set tháng hiện tại là mặc định (phần tử cuối cùng)
     _selectedFilter = _timeFilters.last;
-    
+
     // Tự động cuộn đến tháng hiện tại sau khi UI được build xong
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToSelectedMonth();
     });
   }
-  
+
   // Cuộn đến tháng được chọn
   void _scrollToSelectedMonth() {
     if (_scrollController.hasClients) {
-      final index = _timeFilters.indexWhere(
-        (filter) => filter['key'] == _selectedFilter['key']
-      );
+      final index = _timeFilters
+          .indexWhere((filter) => filter['key'] == _selectedFilter['key']);
       if (index != -1) {
         final double itemWidth = 100.0; // Chiều rộng ước tính của mỗi mục lọc
         final double screenWidth = MediaQuery.of(context).size.width;
-        final double scrollPosition = 
+        final double scrollPosition =
             (itemWidth * index) - (screenWidth / 2) + (itemWidth / 2);
-        
+
         _scrollController.animateTo(
           scrollPosition.clamp(0.0, _scrollController.position.maxScrollExtent),
           duration: const Duration(milliseconds: 500),
@@ -222,7 +260,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             child: GestureDetector(
               onTap: () => _toggleAnalysisType(true),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
                   color: _isExpenseAnalysis
                       ? Theme.of(context).primaryColor
@@ -233,8 +272,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   child: Text(
                     'Chi tiêu',
                     style: TextStyle(
-                      color: _isExpenseAnalysis ? Colors.white : Colors.grey[700],
-                      fontWeight: _isExpenseAnalysis ? FontWeight.bold : FontWeight.normal,
+                      color:
+                          _isExpenseAnalysis ? Colors.white : Colors.grey[700],
+                      fontWeight: _isExpenseAnalysis
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -246,7 +288,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             child: GestureDetector(
               onTap: () => _toggleAnalysisType(false),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
                   color: !_isExpenseAnalysis
                       ? Theme.of(context).primaryColor
@@ -257,8 +300,11 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   child: Text(
                     'Thu nhập',
                     style: TextStyle(
-                      color: !_isExpenseAnalysis ? Colors.white : Colors.grey[700],
-                      fontWeight: !_isExpenseAnalysis ? FontWeight.bold : FontWeight.normal,
+                      color:
+                          !_isExpenseAnalysis ? Colors.white : Colors.grey[700],
+                      fontWeight: !_isExpenseAnalysis
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                 ),
@@ -273,7 +319,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   @override
   Widget build(BuildContext context) {
     // Tính tổng tiền (chi tiêu hoặc thu nhập) của tháng hiện tại
-    final totalAmount = _currentData.fold<double>(0, (sum, item) => sum + item.amount);
+    final totalAmount =
+        _currentData.fold<double>(0, (sum, item) => sum + item.amount);
 
     return Scaffold(
       appBar: AppBar(
@@ -311,7 +358,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                             _isExpenseAnalysis
                                 ? 'Không có chi tiêu nào trong ${_selectedFilter['label']}'
                                 : 'Không có thu nhập nào trong ${_selectedFilter['label']}',
-                            style: const TextStyle(fontSize: 16, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 16, color: Colors.grey),
                           ),
                         )
                       // HIỂN THỊ BIỂU ĐỒ
@@ -384,7 +432,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
               PieChartData(
                 sections: _chartSections(data),
                 sectionsSpace: 2,
-                centerSpaceRadius: 0, 
+                centerSpaceRadius: 0,
                 pieTouchData: PieTouchData(enabled: false),
               ),
             ),
@@ -400,21 +448,22 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     Color getColorForCategory(String category, bool isExpense) {
       // Tạo một mã băm từ tên danh mục để đảm bảo tính nhất quán
       final hash = category.hashCode.abs();
-      
+
       // Chọn bảng màu dựa trên loại (chi tiêu hoặc thu nhập)
-      final hueRange = isExpense 
+      final hueRange = isExpense
           ? const [0, 60] // Đỏ đến vàng
-          : [80, 180];    // Xanh lá đến xanh dương
-      
+          : [80, 180]; // Xanh lá đến xanh dương
+
       // Tạo màu dựa trên mã băm
       return HSLColor.fromAHSL(
         1.0, // Độ trong suốt
-        (hash % (hueRange[1] - hueRange[0]) + hueRange[0]).toDouble(), // Màu sắc
+        (hash % (hueRange[1] - hueRange[0]) + hueRange[0])
+            .toDouble(), // Màu sắc
         0.7, // Độ bão hòa
         0.6, // Độ sáng
       ).toColor();
     }
-    
+
     return data.map((item) {
       final color = getColorForCategory(item.category, _isExpenseAnalysis);
       return PieChartSectionData(

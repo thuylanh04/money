@@ -47,10 +47,8 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
   @override
   Widget build(BuildContext context) {
     final expenseLabel = _groups.isNotEmpty ? _groups[0].groupName : 'EXPENSE';
-    final incomeLabel =
-        _groups.length > 1 ? _groups[1].groupName : 'INCOME';
-    final debtLabel =
-        _groups.length > 2 ? _groups[2].groupName : 'DEBT/LOAN';
+    final incomeLabel = _groups.length > 1 ? _groups[1].groupName : 'INCOME';
+    final debtLabel = _groups.length > 2 ? _groups[2].groupName : 'DEBT/LOAN';
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -101,6 +99,7 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
     try {
       final groups = await _groupService.fetchGroups();
       final categories = await _categoryService.fetchCategories();
+      if (!mounted) return;
       setState(() {
         _groups = groups;
 
@@ -125,6 +124,7 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
         _error = null;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _error = 'Failed to load categories: ${e.toString()}';
@@ -154,6 +154,10 @@ class _SelectCategoryScreenState extends State<SelectCategoryScreen>
               onPressed: () {
                 final name = controller.text.trim();
                 if (name.isEmpty) {
+                  Navigator.of(context).pop();
+                  return;
+                }
+                if (!mounted) {
                   Navigator.of(context).pop();
                   return;
                 }
