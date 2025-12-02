@@ -482,7 +482,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: _selectedDate.isAfter(DateTime.now()) ? DateTime.now() : _selectedDate,
+                      initialDate: _selectedDate.isAfter(DateTime.now())
+                          ? DateTime.now()
+                          : _selectedDate,
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
                     );
@@ -818,13 +820,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         }
       } else {
         // Create new transaction
+        final files = _receiptImages.map((x) => File(x.path)).toList();
         final transactionService = TransactionService();
         await transactionService.createTransaction(
           amount: finalAmount,
-          date: _selectedDate.toIso8601String(),
           categoryIdFE: _selectedCategory!.idFE,
+          note: _noteController.text,
+          date: _selectedDate,
           walletIdFE: _selectedWallet!.idFE,
-          note: _noteController.text.isNotEmpty ? _noteController.text : null,
+          files: files.isNotEmpty ? files : null,
         );
         // response contains the created Transaction if needed
         if (mounted) {
@@ -1326,7 +1330,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           _receiptError = 'An error occurred while processing the image';
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('An error occurred while processing the image')),
+          const SnackBar(
+              content: Text('An error occurred while processing the image')),
         );
       }
       debugPrint('Error processing receipt: $e');

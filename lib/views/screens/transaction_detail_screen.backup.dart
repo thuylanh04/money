@@ -642,12 +642,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         final transactionService = TransactionService();
         final response = await transactionService.createTransaction(
           amount: finalAmount,
-          date: _selectedDate.toIso8601String(),
+          date: _selectedDate,
           categoryIdFE: _selectedCategory!.idFE,
           walletIdFE: _selectedWallet!.idFE,
           note: _noteController.text.isNotEmpty ? _noteController.text : null,
         );
-        result = Transaction.fromJson(response);
+        result = response;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Thêm giao dịch thành công')),

@@ -113,6 +113,7 @@ class ApiAuthService implements AuthService {
     });
 
     try {
+      // Preferred detailed response: { code: 1000, result: { uid: ..., token: ... } }
       final result = data['result'];
       if (result is Map<String, dynamic>) {
         final token = result['token'] as String?;
@@ -127,6 +128,13 @@ class ApiAuthService implements AuthService {
           await StorageService.saveUid(uid);
           return User(id: uid, name: email, email: email);
         }
+      }
+
+      // Some API responses only return { code: 1000, message: 'Success' }
+      final code = data['code'];
+      if ((code is int && code == 1000) || (code is String && code == '1000')) {
+        // No token provided: return a lightweight User and require sign-in separately
+        return User(id: email, name: email, email: email);
       }
     } catch (e) {
       print('Error during sign up: $e');

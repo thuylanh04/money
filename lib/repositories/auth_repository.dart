@@ -28,7 +28,8 @@ class AuthRepository {
     required String password,
     String? dob,
   }) async {
-    final user = await _service.signUp(email: email, password: password, dob: dob);
+    final user =
+        await _service.signUp(email: email, password: password, dob: dob);
     _currentUser = user;
     return user;
   }
