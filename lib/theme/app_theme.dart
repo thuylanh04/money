@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// NOTE: Màu sắc, font, spacing được phỏng đoán dựa trên thiết kế tham chiếu.
 class AppTheme {
   static const Color primaryGreen = Color(0xFF00C853); // phỏng đoán từ button xanh
+  static const Color primaryGreenLight = Color(0xFFE8F5E9); // Light green background for wallet icons
   static const Color accentGreen = Color(0xFF00E676);
   static const Color backgroundGrey = Color(0xFFF5F5F7);
   static const Color textPrimary = Color(0xFF101010);

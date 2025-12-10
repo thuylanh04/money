@@ -43,4 +43,40 @@ class WalletService {
   Future<List<Wallet>> getWallets() async {
     return getUserWallets(); // Default to user's wallets
   }
+
+  /// POST /api/v1/wallets/user/{userId} to create a new wallet for the logged-in user
+  Future<Wallet?> createWallet(String walletName) async {
+    try {
+      // Get the stored user ID
+      final userId = await StorageService.getUid();
+      if (userId == null || userId.isEmpty) {
+        print('No user ID found in storage');
+        return null;
+      }
+
+      // Call the API with the user's ID
+      final response = await _client.post(
+        '/api/v1/wallets/user/$userId',
+        body: {
+          'walletName': walletName,
+        },
+      );
+
+      if (response == null || response is! Map<String, dynamic>) {
+        print('Invalid response format');
+        return null;
+      }
+
+      final result = response['result'];
+      if (result is Map<String, dynamic>) {
+        return Wallet.fromJson(result);
+      }
+
+      print('Unexpected response format: $response');
+      return null;
+    } catch (e) {
+      print('Error creating wallet: $e');
+      rethrow;
+    }
+  }
 }
