@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'dart:convert';
 
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:money_manage/config/env_config.dart';
+
 
 import '../../models/category_fe.dart';
 import '../../models/category_group.dart';
@@ -19,13 +21,16 @@ import '../../services/category_service.dart';
 import '../../theme/app_theme.dart';
 import 'select_category_screen.dart';
 
+
 /// Transaction detail / Add transaction screen.
 /// Layout based on "Add transaction" screenshot.
 class TransactionDetailScreen extends StatefulWidget {
   static const String routeName = '/transaction-detail';
   final Transaction? transaction;
 
+
   const TransactionDetailScreen({super.key, this.transaction});
+
 
   // Add this static method to handle route generation
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -40,10 +45,12 @@ class TransactionDetailScreen extends StatefulWidget {
     );
   }
 
+
   @override
   State<TransactionDetailScreen> createState() =>
       _TransactionDetailScreenState();
 }
+
 
 class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     with SingleTickerProviderStateMixin {
@@ -61,6 +68,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   final GroupService _groupService = GroupService(ApiClient());
   final WalletService _walletService = WalletService(ApiClient());
 
+
   // Wallet related state
   List<Wallet> _wallets = [];
   Wallet? _selectedWallet;
@@ -71,11 +79,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   String? _initialWalletId;
   String? _initialWalletName;
 
+
   // Categories and AI state
   List<CategoryFE> _categories = [];
   bool _isAiRunning = false;
   bool _aiCompleted = false;
   bool _isSaving = false;
+
 
   String _expenseLabel = 'Expense';
   String _incomeLabel = 'Income';
@@ -86,10 +96,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
   CategoryFE? _selectedCategory;
   Transaction? _transaction;
 
+
   // Field validation errors
   String? _amountError;
   String? _categoryError;
   String? _walletValidationError;
+
 
   // Helper method to determine if a transaction is income
   // Now we'll check the group type instead of amount sign
@@ -97,12 +109,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     return transaction.groupType?.toLowerCase() == 'income';
   }
 
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: 0);
     _fetchWallets();
     _loadCategories();
+
 
     // Pre-fill form if editing existing transaction
     if (widget.transaction != null) {
@@ -113,9 +127,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       _noteController.text = transaction.note ?? '';
       _selectedDate = transaction.date;
 
+
       // Set the transaction type tab (income/expense)
       final tabIndex = _isIncome(transaction) ? 0 : 1;
       _tabController.animateTo(tabIndex);
+
 
       // Try to set category and wallet from the shallow object; they will be
       // overwritten when full detail loads.
@@ -134,10 +150,12 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         }
       }
 
+
       if (transaction.walletIdFE != null) {
         _initialWalletId = transaction.walletIdFE;
         _initialWalletName = transaction.walletName;
       }
+
 
       // If server provided image URLs, store them to display as remote receipts
       if (transaction.image != null && transaction.image!.isNotEmpty) {
@@ -149,11 +167,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     _fetchWallets();
     _loadCategories();
 
+
     // If we have an initial transaction, fetch full details from server
     if (widget.transaction != null) {
       _loadTransactionDetail();
     }
   }
+
 
   Future<void> _loadTransactionDetail() async {
     if (widget.transaction == null) return;
@@ -162,11 +182,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       final detail = await service.transactionDetail(widget.transaction!.idFE);
       if (!mounted) return;
 
+
       setState(() {
         _transaction = detail;
         _amountController.text = detail.amount.toString();
         _noteController.text = detail.note ?? '';
         _selectedDate = detail.date;
+
 
         // Set selected category if available
         if (detail.categoryIdFE != null) {
@@ -183,6 +205,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
             );
           }
         }
+
 
         if (detail.walletIdFE != null) {
           // Prefer to pick the instance from _wallets when available to
@@ -201,6 +224,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           }
         }
 
+
         // Remote images
         _remoteReceiptUrls = detail.image ?? [];
       });
@@ -208,6 +232,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       debugPrint('Error loading transaction detail: $e');
     }
   }
+
 
   Future<void> _loadCategories() async {
     try {
@@ -228,6 +253,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -235,6 +261,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     _noteController.dispose();
     super.dispose();
   }
+
 
   Future<void> _runAiClassification() async {
     if (_receiptImages.isEmpty) {
@@ -247,14 +274,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       return;
     }
 
+
     if (mounted) {
       setState(() {
         _isAiRunning = true;
       });
     }
 
+
     try {
       await _runReceiptAnalysis(_receiptImages.first);
+
 
       if (mounted) {
         setState(() {
@@ -277,6 +307,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       }
     }
   }
+
 
   AppBar _buildAppBar() {
     return AppBar(
@@ -303,6 +334,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     );
   }
 
+
   Future<void> _showDeleteConfirmation() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -324,18 +356,22 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       ),
     );
 
+
     if (confirmed == true) {
       await _deleteTransaction();
     }
   }
 
+
   Future<void> _deleteTransaction() async {
     if (widget.transaction == null) return;
+
 
     try {
       final transactionService = TransactionService();
       final success =
           await transactionService.deleteTransaction(widget.transaction!.idFE);
+
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -354,11 +390,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final isTablet = media.size.width > 600;
     final horizontalPadding = isTablet ? media.size.width * 0.08 : 16.0;
+
 
     final mainContent = Column(
       children: [
@@ -482,9 +520,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   onTap: () async {
                     final picked = await showDatePicker(
                       context: context,
-                      initialDate: _selectedDate.isAfter(DateTime.now())
-                          ? DateTime.now()
-                          : _selectedDate,
+                      initialDate: _selectedDate.isAfter(DateTime.now()) ? DateTime.now() : _selectedDate,
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
                     );
@@ -544,6 +580,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       ],
     );
 
+
     return Scaffold(
         appBar: _buildAppBar(),
         body: Transform.translate(
@@ -568,6 +605,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         ));
   }
 
+
   bool get _canSave {
     final hasAmount = _amountController.text.trim().isNotEmpty;
     final hasCategory = _selectedCategory != null;
@@ -575,14 +613,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     return _aiCompleted || (hasAmount && hasCategory);
   }
 
+
   bool get _canAiClassify {
     return _receiptImages.isNotEmpty && !_isAiRunning;
   }
+
 
   Future<void> _loadGroups() async {
     try {
       final groups = await _groupService.fetchGroups();
       if (!mounted || groups.isEmpty) return;
+
 
       setState(() {
         if (groups.length > 0) {
@@ -603,13 +644,16 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+
   Future<void> _fetchWallets() async {
     if (_isLoadingWallets) return;
+
 
     setState(() {
       _isLoadingWallets = true;
       _walletError = null;
     });
+
 
     try {
       final wallets = await _walletService.getWallets();
@@ -652,6 +696,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       }
     }
   }
+
 
   Widget _buildWalletSelection() {
     return Column(
@@ -710,6 +755,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     );
   }
 
+
   void _handleTabChanged() {
     if (!_tabController.indexIsChanging && _selectedCategory != null) {
       // If user switches tab manually to a type that does not match
@@ -725,6 +771,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         expectedIndex = 2;
       }
 
+
       if (expectedIndex != null && expectedIndex != _tabController.index) {
         setState(() {
           _selectedCategory = null;
@@ -733,9 +780,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+
   void _updateTabForCategory(CategoryFE category) {
     final gid = category.groupIdFE;
     if (gid.isEmpty) return;
+
 
     if (_expenseGroupIdFE != null && gid == _expenseGroupIdFE) {
       _tabController.index = 0;
@@ -746,6 +795,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+
   Future<void> _handleSave() async {
     // Clear previous validation errors
     setState(() {
@@ -753,6 +803,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       _categoryError = null;
       _walletValidationError = null;
     });
+
 
     // Validate required fields (show inline errors)
     if (_amountController.text.isEmpty) {
@@ -764,6 +815,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       return;
     }
 
+
     if (_selectedCategory == null) {
       if (mounted) {
         setState(() {
@@ -772,6 +824,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       }
       return;
     }
+
 
     if (_selectedWallet == null) {
       if (mounted) {
@@ -782,16 +835,19 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       return;
     }
 
+
     // Parse and ensure amount is positive
     final amount = double.tryParse(
             _amountController.text.replaceAll(RegExp(r'[^\d.]'), '')) ??
         0.0;
     final finalAmount = amount.abs(); // Ensure amount is always positive
 
+
     // All validation passed — show saving overlay while performing network operations.
     setState(() {
       _isSaving = true;
     });
+
 
     try {
       if (widget.transaction != null) {
@@ -820,15 +876,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         }
       } else {
         // Create new transaction
-        final files = _receiptImages.map((x) => File(x.path)).toList();
         final transactionService = TransactionService();
         await transactionService.createTransaction(
           amount: finalAmount,
+          date: _selectedDate.toIso8601String(),
           categoryIdFE: _selectedCategory!.idFE,
-          note: _noteController.text,
-          date: _selectedDate,
           walletIdFE: _selectedWallet!.idFE,
-          files: files.isNotEmpty ? files : null,
+          note: _noteController.text.isNotEmpty ? _noteController.text : null,
         );
         // response contains the created Transaction if needed
         if (mounted) {
@@ -837,6 +891,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           );
         }
       }
+
 
       if (mounted) {
         // Hide saving overlay before navigating away
@@ -878,6 +933,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     }
   }
 
+
   void _showAddAccountDialog(BuildContext context) {
     showDialog<void>(
       context: context,
@@ -897,6 +953,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     );
   }
 
+
   String _formatDate(DateTime date) {
     const weekdays = [
       'Monday',
@@ -913,6 +970,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     final year = date.year.toString();
     return '$weekday, $day/$month/$year';
   }
+
 
   Widget _buildReceiptRow(BuildContext context) {
     return Column(
@@ -1010,6 +1068,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   );
                 }
 
+
                 final localIndex = index - _remoteReceiptUrls.length;
                 final file = _receiptImages[localIndex];
                 return GestureDetector(
@@ -1069,14 +1128,17 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     );
   }
 
+
   Future<void> _pickReceiptFromGallery() async {
     final pickedList = await _picker.pickMultiImage();
     if (pickedList.isEmpty) {
       return;
     }
 
+
     const allowedExt = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
     final validFiles = <XFile>[];
+
 
     for (final file in pickedList) {
       final lowerPath = file.path.toLowerCase();
@@ -1086,6 +1148,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       }
     }
 
+
     if (validFiles.isEmpty) {
       setState(() {
         _receiptError =
@@ -1094,17 +1157,20 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       return;
     }
 
+
     setState(() {
       _receiptImages.addAll(validFiles);
       _receiptError = null;
     });
   }
 
+
   Future<void> _captureReceiptPhoto() async {
     final photo = await _picker.pickImage(source: ImageSource.camera);
     if (photo == null) {
       return;
     }
+
 
     const allowedExt = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
     final lowerPath = photo.path.toLowerCase();
@@ -1117,11 +1183,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       return;
     }
 
+
     setState(() {
       _receiptImages.add(photo);
       _receiptError = null;
     });
   }
+
 
   void _showReceiptSourceSheet(BuildContext context) {
     showModalBottomSheet<void>(
@@ -1154,8 +1222,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     );
   }
 
+
   Future<void> _runReceiptAnalysis(XFile file) async {
     if (!mounted) return;
+
 
     // Show loading indicator
     showDialog(
@@ -1166,11 +1236,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       ),
     );
 
+
     try {
       // Call the new API endpoint for AI classification
       final url = Uri.parse(
           '${EnvConfig.apiBaseUrl}/api/v1/transactions/test-upload-multiple');
       final request = http.MultipartRequest('POST', url);
+
 
       // Add the image file
       final fileStream = http.ByteStream(file.openRead());
@@ -1183,13 +1255,16 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       );
       request.files.add(multipartFile);
 
+
       // Send the request
       debugPrint('Sending request to: ${url.toString()}');
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
+
       debugPrint('Response status: ${response.statusCode}');
       debugPrint('Response body: ${response.body}');
+
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
@@ -1198,8 +1273,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           final totalAmount = result['total_amount'] as String?;
           final invoiceType = result['invoice_type'] as String?;
 
+
           if (!mounted) return;
           Navigator.of(context).pop(); // Dismiss loading indicator
+
 
           if (mounted) {
             setState(() {
@@ -1210,9 +1287,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   String cleanAmount =
                       totalAmount.replaceAll(RegExp(r'[^0-9,.]'), '');
 
+
                   // Check if the last comma or dot is a decimal separator
                   int lastComma = cleanAmount.lastIndexOf(',');
                   int lastDot = cleanAmount.lastIndexOf('.');
+
 
                   if (lastComma > lastDot) {
                     // Comma is the decimal separator, dot is thousand separator
@@ -1228,6 +1307,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                     cleanAmount = cleanAmount;
                   }
 
+
                   // Parse to double and format without decimal places if it's a whole number
                   double amount = double.parse(cleanAmount);
                   if (amount == amount.truncate()) {
@@ -1235,6 +1315,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   } else {
                     _amountController.text = amount.toString();
                   }
+
 
                   debugPrint(
                       'Parsed amount: ${_amountController.text} from original: $totalAmount');
@@ -1250,6 +1331,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                 }
               }
 
+
               // Find and set the matching category
               if (invoiceType != null) {
                 // Find category that matches invoice_type
@@ -1261,6 +1343,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                   );
                   _selectedCategory = matchedCategory;
                   _updateTabForCategory(_selectedCategory!);
+
 
                   // Show success message
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1276,6 +1359,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                     );
                     _updateTabForCategory(_selectedCategory!);
 
+
                     // Show invoice type in snackbar
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('Loại hóa đơn: $invoiceType')),
@@ -1290,6 +1374,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
                 }
               }
 
+
               // Clear any previous errors
               _receiptError = null;
             });
@@ -1298,9 +1383,11 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         }
       }
 
+
       // If we get here, there was an error
       if (!mounted) return;
       Navigator.of(context).pop(); // Dismiss loading indicator
+
 
       String errorMessage = 'Unable to process receipt. Please try again.';
       try {
@@ -1312,7 +1399,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
         debugPrint('Error parsing error response: $e');
       }
 
+
       debugPrint('API Error (${response.statusCode}): $errorMessage');
+
 
       if (mounted) {
         setState(() {
@@ -1330,17 +1419,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
           _receiptError = 'An error occurred while processing the image';
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('An error occurred while processing the image')),
+          const SnackBar(content: Text('An error occurred while processing the image')),
         );
       }
       debugPrint('Error processing receipt: $e');
     }
   }
 
+
   void _showFullImage(int index) {
     if (index < 0) return;
     if (!mounted) return;
+
 
     Widget imageWidget;
     if (index < _remoteReceiptUrls.length) {
@@ -1355,6 +1445,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
       imageWidget = Image.file(File(_receiptImages[localIndex].path),
           fit: BoxFit.contain);
     }
+
 
     showDialog<void>(
       context: context,
@@ -1374,6 +1465,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     );
   }
 }
+
 
 extension on _CalculatorPad {
   void _onButtonPressed(String label) {
@@ -1407,12 +1499,14 @@ extension on _CalculatorPad {
         }
     }
 
+
     if (label != '>' && label != 'C') {
       controller.text = _formatWithCommas(text);
     } else if (label == 'C') {
       controller.text = '';
     }
   }
+
 
   String _formatWithCommas(String value) {
     if (value.isEmpty) return '';
@@ -1423,6 +1517,7 @@ extension on _CalculatorPad {
       text = text.substring(1);
     }
 
+
     String integerPart = text;
     String decimalPart = '';
     if (text.contains('.')) {
@@ -1430,6 +1525,7 @@ extension on _CalculatorPad {
       integerPart = parts[0];
       decimalPart = parts.sublist(1).join('.');
     }
+
 
     final chars = integerPart.split('').reversed.toList();
     final buffer = StringBuffer();
@@ -1441,12 +1537,14 @@ extension on _CalculatorPad {
     }
     final formattedInt = buffer.toString().split('').reversed.join();
 
+
     if (decimalPart.isNotEmpty) {
       return '$sign$formattedInt.$decimalPart';
     }
     return '$sign$formattedInt';
   }
 }
+
 
 class _RowItem extends StatelessWidget {
   final Widget leading;
@@ -1455,6 +1553,7 @@ class _RowItem extends StatelessWidget {
   final bool showChevron;
   final VoidCallback? onTap;
 
+
   const _RowItem({
     required this.leading,
     required this.title,
@@ -1462,6 +1561,7 @@ class _RowItem extends StatelessWidget {
     this.showChevron = false,
     this.onTap,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -1505,11 +1605,14 @@ class _RowItem extends StatelessWidget {
   }
 }
 
+
 class _AmountField extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback? onTap;
 
+
   const _AmountField({required this.controller, this.onTap});
+
 
   @override
   Widget build(BuildContext context) {
@@ -1560,12 +1663,14 @@ class _AmountField extends StatelessWidget {
   }
 }
 
+
 class _SaveBar extends StatelessWidget {
   final VoidCallback onSave;
   final VoidCallback onAiClassify;
   final bool canSave;
   final bool canAiClassify;
   final bool isAiRunning;
+
 
   const _SaveBar({
     required this.onSave,
@@ -1574,6 +1679,7 @@ class _SaveBar extends StatelessWidget {
     required this.canAiClassify,
     required this.isAiRunning,
   });
+
 
   @override
   Widget build(BuildContext context) {
@@ -1611,11 +1717,14 @@ class _SaveBar extends StatelessWidget {
   }
 }
 
+
 class _CalculatorPad extends StatelessWidget {
   final TextEditingController controller;
   final VoidCallback onSubmit;
 
+
   const _CalculatorPad({required this.controller, required this.onSubmit});
+
 
   @override
   Widget build(BuildContext context) {
@@ -1642,6 +1751,7 @@ class _CalculatorPad extends StatelessWidget {
       '000',
       '>',
     ];
+
 
     return Container(
       color: Colors.white,
@@ -1701,3 +1811,6 @@ class _CalculatorPad extends StatelessWidget {
     );
   }
 }
+
+
+

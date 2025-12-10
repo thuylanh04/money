@@ -10,19 +10,25 @@ import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
+
 class TransactionService {
   final ApiClient _client;
   static final TransactionService _instance =
       TransactionService._internal(ApiClient());
 
+
   factory TransactionService() => _instance;
+
 
   static TransactionService get instance => _instance;
 
+
   TransactionService._internal(this._client);
+
 
   // Cache for categories
   Map<String, Map<String, dynamic>>? _categoriesCache;
+
 
   // Get all categories and cache them
   Future<Map<String, Map<String, dynamic>>> getCategories() async {
@@ -30,12 +36,15 @@ class TransactionService {
       return _categoriesCache!;
     }
 
+
     try {
       final response = await _client.get('/api/v1/categories');
+
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         final List<dynamic> categories = response['result'] ?? [];
         _categoriesCache = {};
+
 
         for (var category in categories) {
           _categoriesCache![category['idFE']] = {
@@ -45,8 +54,10 @@ class TransactionService {
           };
         }
 
+
         return _categoriesCache!;
       }
+
 
       throw Exception('Failed to load categories');
     } catch (e) {
@@ -55,9 +66,11 @@ class TransactionService {
     }
   }
 
+
   // Helper to determine group type from groupIdFE
   String _getGroupType(String? groupIdFE) {
     if (groupIdFE == null) return 'expense';
+
 
     if (groupIdFE.startsWith('Income')) {
       return 'income';
@@ -69,53 +82,52 @@ class TransactionService {
     return 'expense'; // Default to expense
   }
 
-  Future<Transaction> createTransaction({
+
+  Future<Map<String, dynamic>> createTransaction({
     required double amount,
-    required String categoryIdFE,
+    required String date,
     String? note,
-    required DateTime date,
+    required String categoryIdFE,
     required String walletIdFE,
     List<File>? files,
-    String? token,
   }) async {
     try {
-      final dio = Dio();
-
       final userId = await StorageService.getUid();
       if (userId == null) {
         throw Exception('No user ID found');
       }
+
 
       // Get authentication token
       final token = await StorageService.getToken();
       if (token == null || token.isEmpty) {
         throw Exception('No authentication token found');
       }
-      final String url = '${EnvConfig.apiBaseUrl}/api/v1/transactions';
+
+
       // Create transaction payload matching updateTransaction
       final transactionData = {
         "idFE": "",
         "amount": amount,
         "categoryIdFE": categoryIdFE,
         "walletIdFE": walletIdFE,
-        "date": date.toIso8601String(),
+        "date": DateTime.tryParse(date)?.toIso8601String() ?? date,
         "userIdFE": userId,
         if (note != null && note.isNotEmpty) "note": note,
       };
 
-      final transactionJson = jsonEncode(transactionData);
 
       final formData = FormData();
-
       formData.files.add(
         MapEntry(
           "transaction",
           MultipartFile.fromString(
-            transactionJson,
+            jsonEncode(transactionData),
             contentType: MediaType("application", "json"),
           ),
         ),
       );
+
 
       if (files != null && files.isNotEmpty) {
         for (var file in files) {
@@ -131,23 +143,27 @@ class TransactionService {
         }
       }
 
+
       // Send the request using Dio
+      final dio = Dio();
       final response = await dio.post(
-        url,
+        '${EnvConfig.apiBaseUrl}/api/v1/transactions',
         data: formData,
         options: Options(
           headers: {
             "Authorization": "Bearer $token",
+            'ngrok-skip-browser-warning': 'true',
           },
           contentType: 'multipart/form-data',
         ),
       );
-      // ✅ Convert response.data sang Transaction
+
+
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
         final responseData = response.data;
         if (responseData is Map<String, dynamic> &&
             responseData['code'] == 1000) {
-          return Transaction.fromJson(response.data['result'] ?? {});
+          return responseData['result'] ?? {};
         } else {
           throw Exception(responseData?['message']?.toString() ??
               'Failed to create transaction');
@@ -161,92 +177,6 @@ class TransactionService {
     }
   }
 
-  Future<Transaction> updateTransaction({
-    required String transactionId,
-    required double amount,
-    required String categoryIdFE,
-    String? note,
-    required DateTime date,
-    required String walletIdFE,
-    List<File>? files,
-    String? token,
-  }) async {
-    final dio = Dio();
-
-    final authToken = token ?? await StorageService.getToken();
-    if (authToken == null || authToken.isEmpty) {
-      throw Exception('No authentication token found');
-    }
-
-    final userId = await StorageService.getUid();
-    if (userId == null) {
-      throw Exception('No user ID found');
-    }
-
-    final String url =
-        "https://a40e37a4219f.ngrok-free.app/api/v1/transactions";
-
-    final transactionData = {
-      "idFE": transactionId,
-      "amount": amount,
-      "categoryIdFE": categoryIdFE,
-      "walletIdFE": walletIdFE,
-      "date": date.toIso8601String(),
-      "userIdFE": userId,
-      if (note != null && note.isNotEmpty) "note": note,
-    };
-
-    final transactionJson = jsonEncode(transactionData);
-
-    final formData = FormData();
-
-    formData.files.add(
-      MapEntry(
-        "transaction",
-        MultipartFile.fromString(
-          transactionJson,
-          contentType: MediaType("application", "json"),
-        ),
-      ),
-    );
-
-    if (files != null && files.isNotEmpty) {
-      for (var file in files) {
-        formData.files.add(
-          MapEntry(
-            "files",
-            await MultipartFile.fromFile(
-              file.path,
-              filename: file.path.split("/").last,
-            ),
-          ),
-        );
-      }
-    }
-
-    try {
-      final response = await dio.put(
-        url,
-        data: formData,
-        options: Options(
-          headers: {"Authorization": "Bearer $authToken"},
-          contentType: "multipart/form-data",
-        ),
-      );
-
-      // ✅ Convert response.data sang Transaction
-      if (response.data is Map<String, dynamic> &&
-          response.data['code'] == 1000) {
-        return Transaction.fromJson(response.data['result'] ?? {});
-      } else {
-        throw Exception(response.data?['message']?.toString() ??
-            'Failed to update transaction');
-      }
-    } on DioException catch (e) {
-      print("DIO ERROR == ${e.response?.data}");
-      rethrow;
-    }
-  }
 
   Future<List<Transaction>> getUserTransactions() async {
     try {
@@ -255,10 +185,13 @@ class TransactionService {
         throw Exception('No user ID found');
       }
 
+
       // Load categories first
       final categories = await getCategories();
 
+
       final response = await _client.get('/api/v1/transactions/user/$userId');
+
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         final List<dynamic> transactionsData = response['result'] ?? [];
@@ -293,6 +226,7 @@ class TransactionService {
     }
   }
 
+
   /// Fetch a single transaction by idFE from the API and return a [Transaction].
   /// Enriches the returned transaction with category group info when available.
   Future<Transaction> transactionDetail(String transactionId) async {
@@ -300,11 +234,14 @@ class TransactionService {
       // Load categories first for enrichment
       final categories = await getCategories();
 
+
       final response = await _client.get('/api/v1/transactions/$transactionId');
+
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         final Map<String, dynamic> json = response['result'] ?? {};
         final transaction = Transaction.fromJson(json);
+
 
         final categoryInfo = categories[transaction.categoryIdFE];
         if (categoryInfo != null) {
@@ -323,6 +260,7 @@ class TransactionService {
           );
         }
 
+
         return transaction;
       } else {
         throw Exception(
@@ -334,11 +272,111 @@ class TransactionService {
     }
   }
 
+
+  Future<Transaction> updateTransaction({
+    required String transactionId,
+    required double amount,
+    required String categoryIdFE,
+    String? note,
+    required DateTime date,
+    required String walletIdFE,
+    List<File>? files,
+    String? token,
+  }) async {
+    final dio = Dio();
+
+
+    final authToken = token ?? await StorageService.getToken();
+    if (authToken == null || authToken.isEmpty) {
+      throw Exception('No authentication token found');
+    }
+
+
+    final userId = await StorageService.getUid();
+    if (userId == null) {
+      throw Exception('No user ID found');
+    }
+
+
+    final String url =
+        "https://50dae6987226.ngrok-free.app/api/v1/transactions";
+
+
+    final transactionData = {
+      "idFE": transactionId,
+      "amount": amount,
+      "categoryIdFE": categoryIdFE,
+      "walletIdFE": walletIdFE,
+      "date": date.toIso8601String(),
+      "userIdFE": userId,
+      if (note != null && note.isNotEmpty) "note": note,
+    };
+
+
+    final transactionJson = jsonEncode(transactionData);
+
+
+    final formData = FormData();
+
+
+    formData.files.add(
+      MapEntry(
+        "transaction",
+        MultipartFile.fromString(
+          transactionJson,
+          contentType: MediaType("application", "json"),
+        ),
+      ),
+    );
+
+
+    if (files != null && files.isNotEmpty) {
+      for (var file in files) {
+        formData.files.add(
+          MapEntry(
+            "files",
+            await MultipartFile.fromFile(
+              file.path,
+              filename: file.path.split("/").last,
+            ),
+          ),
+        );
+      }
+    }
+
+
+    try {
+      final response = await dio.put(
+        url,
+        data: formData,
+        options: Options(
+          headers: {"Authorization": "Bearer $authToken"},
+          contentType: "multipart/form-data",
+        ),
+      );
+
+
+      // ✅ Convert response.data sang Transaction
+      if (response.data is Map<String, dynamic> &&
+          response.data['code'] == 1000) {
+        return Transaction.fromJson(response.data['result'] ?? {});
+      } else {
+        throw Exception(response.data?['message']?.toString() ??
+            'Failed to update transaction');
+      }
+    } on DioException catch (e) {
+      print("DIO ERROR == ${e.response?.data}");
+      rethrow;
+    }
+  }
+
+
   Future<bool> deleteTransaction(String transactionId) async {
     try {
       final response = await _client.delete(
         '/api/v1/transactions/$transactionId',
       );
+
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         return true;
@@ -352,3 +390,6 @@ class TransactionService {
     }
   }
 }
+
+
+

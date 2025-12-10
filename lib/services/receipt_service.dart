@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:http_parser/http_parser.dart';
 
+
 import '../config/env_config.dart';
+
 
 class ReceiptData {
   final double amount;
@@ -16,6 +19,7 @@ class ReceiptData {
   final String? invoiceType;
   final List<String>? imageUrls;
 
+
   ReceiptData({
     required this.amount,
     this.categoryId,
@@ -24,6 +28,7 @@ class ReceiptData {
     this.invoiceType,
     this.imageUrls,
   });
+
 
   factory ReceiptData.fromJson(Map<String, dynamic> json) {
     return ReceiptData(
@@ -41,15 +46,18 @@ class ReceiptData {
   }
 }
 
+
 abstract class ReceiptService {
   Future<ReceiptData> processReceipt(XFile file);
 }
+
 
 class MockReceiptService implements ReceiptService {
   @override
   Future<ReceiptData> processReceipt(XFile file) async {
     // Simulate API delay
     await Future.delayed(const Duration(seconds: 2));
+
 
     // Mock data - you can customize these values
     return ReceiptData(
@@ -60,14 +68,17 @@ class MockReceiptService implements ReceiptService {
   }
 }
 
+
 class ApiReceiptService implements ReceiptService {
-  static const String _baseUrl = 'https://a40e37a4219f.ngrok-free.app/api/v1';
+  static const String _baseUrl = 'https://50dae6987226.ngrok-free.app/api/v1';
+
 
   @override
   Future<ReceiptData> processReceipt(XFile file) async {
     try {
       final uri = Uri.parse('$_baseUrl/transactions/test-upload-multiple');
       final request = http.MultipartRequest('POST', uri);
+
 
       // Add the image file
       request.files.add(await http.MultipartFile.fromPath(
@@ -76,12 +87,15 @@ class ApiReceiptService implements ReceiptService {
         contentType: MediaType('image', 'jpeg'),
       ));
 
+
       // Add headers
       request.headers['Content-Type'] = 'multipart/form-data';
       request.headers['ngrok-skip-browser-warning'] = 'true';
 
+
       final response = await request.send();
       final responseData = await response.stream.bytesToString();
+
 
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(responseData);
@@ -102,18 +116,26 @@ class ApiReceiptService implements ReceiptService {
   }
 }
 
+
 class ReceiptRepository {
   final ReceiptService _service;
 
+
   ReceiptRepository._internal(this._service);
+
 
   static final ReceiptRepository _instance = ReceiptRepository._internal(
     MockReceiptService(), // Always use mock for now
   );
 
+
   factory ReceiptRepository() => _instance;
+
 
   Future<ReceiptData> processReceipt(XFile file) {
     return _service.processReceipt(file);
   }
 }
+
+
+

@@ -6,6 +6,7 @@ import 'views/screens/home_screen.dart';
 import 'views/screens/login_screen.dart';
 import 'views/screens/onboarding_screen.dart';
 import 'views/screens/plans_screen.dart';
+import 'views/screens/change_password_screen.dart';
 import 'views/screens/reports_screen.dart';
 import 'views/screens/select_category_screen.dart';
 import 'views/screens/settings_screen.dart';
@@ -17,8 +18,10 @@ import 'views/screens/forgot_password_screen.dart';
 import 'views/screens/wallets_screen.dart';
 import 'views/screens/categories_screen.dart';
 
+
 class MoneyFinwiseApp extends StatelessWidget {
   const MoneyFinwiseApp({super.key});
+
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +33,7 @@ class MoneyFinwiseApp extends StatelessWidget {
       initialRoute: SplashScreen.routeName,
     );
   }
+
 
   Route<dynamic> _onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -88,6 +92,11 @@ class MoneyFinwiseApp extends StatelessWidget {
           builder: (_) => const WalletsScreen(),
           settings: settings,
         );
+      case ChangePasswordScreen.routeName:
+        return MaterialPageRoute(
+          builder: (_) => const ChangePasswordScreen(),
+          settings: settings,
+        );
       case CategoriesScreen.routeName:
         return MaterialPageRoute(
           builder: (_) => const CategoriesScreen(),
@@ -121,3 +130,6 @@ class MoneyFinwiseApp extends StatelessWidget {
     }
   }
 }
+
+
+
