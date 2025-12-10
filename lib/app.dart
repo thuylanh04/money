@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import 'theme/app_theme.dart';
+import 'providers/settings_provider.dart';
 import 'views/screens/account_screen.dart';
 import 'views/screens/bills_screen.dart';
 import 'views/screens/home_screen.dart';
@@ -25,12 +28,16 @@ class MoneyFinwiseApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Money — Finwise',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      onGenerateRoute: _onGenerateRoute,
-      initialRoute: SplashScreen.routeName,
+    return Consumer<SettingsProvider>(
+      builder: (context, settings, _) {
+        return MaterialApp(
+          title: 'Money — Finwise',
+          debugShowCheckedModeBanner: false,
+          theme: settings.isDarkMode ? AppTheme.darkTheme : AppTheme.lightTheme,
+          onGenerateRoute: _onGenerateRoute,
+          initialRoute: SplashScreen.routeName,
+        );
+      },
     );
   }
 

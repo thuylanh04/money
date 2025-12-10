@@ -21,6 +21,9 @@ class AppTheme {
       colorScheme: base.colorScheme.copyWith(
         primary: primaryGreen,
         secondary: accentGreen,
+        background: Colors.white,
+        surface: Colors.white,
+        onSurface: textPrimary,
       ),
       appBarTheme: const AppBarTheme(
         elevation: 0,
@@ -46,6 +49,70 @@ class AppTheme {
             borderRadius: BorderRadius.circular(24),
           ),
           minimumSize: const Size(double.infinity, 52),
+        ),
+      ),
+      cardTheme: ThemeData.light().cardTheme.copyWith(
+        color: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    final base = ThemeData.dark(useMaterial3: false);
+    final textTheme = GoogleFonts.poppinsTextTheme(base.textTheme);
+    return base.copyWith(
+      primaryColor: primaryGreen,
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      colorScheme: base.colorScheme.copyWith(
+        primary: primaryGreen,
+        secondary: accentGreen,
+        background: const Color(0xFF121212),
+        surface: const Color(0xFF1E1E1E),
+        onSurface: Colors.white,
+      ),
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        backgroundColor: Color(0xFF1E1E1E),
+        foregroundColor: Colors.white,
+      ),
+      textTheme: textTheme.copyWith(
+        headlineMedium: textTheme.headlineMedium?.copyWith(
+          fontSize: 24,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+        bodyMedium: textTheme.bodyMedium?.copyWith(
+          fontSize: 14,
+          color: Colors.white70,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryGreen,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          minimumSize: const Size(double.infinity, 52),
+        ),
+      ),
+      cardTheme: ThemeData.dark().cardTheme.copyWith(
+        color: const Color(0xFF1E1E1E),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      inputDecorationTheme: const InputDecorationTheme(
+        fillColor: Color(0xFF2C2C2C),
+        filled: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide.none,
         ),
       ),
     );

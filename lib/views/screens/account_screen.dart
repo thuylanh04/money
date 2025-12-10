@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-
+import 'package:provider/provider.dart';
 
 import '../../repositories/auth_repository.dart';
+import '../../providers/settings_provider.dart';
 import 'login_screen.dart';
 import 'change_password_screen.dart';
-import 'settings_screen.dart';
 import 'wallets_screen.dart';
+import 'settings_screen.dart';
 import '../../theme/app_theme.dart';
 
 
@@ -67,7 +68,73 @@ class AccountScreen extends StatelessWidget {
               );
             },
           ),
-
+          
+          // Theme
+          Consumer<SettingsProvider>(
+            builder: (context, settings, child) => ListTile(
+              leading: const Icon(Icons.color_lens_outlined),
+              title: const Text('Theme'),
+              trailing: Switch(
+                value: settings.isDarkMode,
+                onChanged: (value) {
+                  settings.toggleTheme(value);
+                },
+              ),
+            ),
+          ),
+          
+          // Language
+          Consumer<SettingsProvider>(
+            builder: (context, settings, child) => ListTile(
+              leading: const Icon(Icons.language_outlined),
+              title: const Text('Language'),
+              trailing: DropdownButton<String>(
+                value: settings.languageCode,
+                items: const [
+                  DropdownMenuItem(value: 'en', child: Text('English')),
+                  DropdownMenuItem(value: 'vi', child: Text('Tiếng Việt')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    settings.setLanguage(value);
+                  }
+                },
+              ),
+            ),
+          ),
+          
+          // Currency
+          Consumer<SettingsProvider>(
+            builder: (context, settings, child) => ListTile(
+              leading: const Icon(Icons.attach_money_outlined),
+              title: const Text('Currency'),
+              trailing: Text(
+                settings.currency,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+            ),
+          ),
+          
+          // Date Format
+          Consumer<SettingsProvider>(
+            builder: (context, settings, child) => ListTile(
+              leading: const Icon(Icons.date_range_outlined),
+              title: const Text('Date Format'),
+              trailing: DropdownButton<String>(
+                value: settings.dateFormat,
+                items: const [
+                  DropdownMenuItem(value: 'dd/MM/yyyy', child: Text('DD/MM/YYYY')),
+                  DropdownMenuItem(value: 'MM/dd/yyyy', child: Text('MM/DD/YYYY')),
+                  DropdownMenuItem(value: 'yyyy-MM-dd', child: Text('YYYY-MM-DD')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    settings.setDateFormat(value);
+                  }
+                },
+              ),
+            ),
+          ),
 
           // Settings
           ListTile(
@@ -77,7 +144,6 @@ class AccountScreen extends StatelessWidget {
               Navigator.of(context).pushNamed(SettingsScreen.routeName);
             },
           ),
-
 
           const Divider(height: 32),
 
