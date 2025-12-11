@@ -16,7 +16,7 @@ class SettingsProvider extends ChangeNotifier {
   SettingsProvider(this._prefs)
       : _isDarkMode = _prefs.getBool(_themeKey) ?? false,
         _languageCode = _prefs.getString(_languageKey) ?? 'en',
-        _currency = _prefs.getString(_currencyKey) ?? 'VND',
+        _currency = _prefs.getString(_currencyKey) ?? 'USD',
         _dateFormat = _prefs.getString(_dateFormatKey) ?? 'dd/MM/yyyy';
 
   // Getters
@@ -48,7 +48,7 @@ class SettingsProvider extends ChangeNotifier {
         return '€';
       case 'JPY':
         return '¥';
-      case 'VND':
+      case 'USD':
         return '₫';
       default:
         return _currency;
