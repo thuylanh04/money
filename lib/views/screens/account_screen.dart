@@ -8,22 +8,19 @@ import 'change_password_screen.dart';
 import 'wallets_screen.dart';
 import 'settings_screen.dart';
 import '../../theme/app_theme.dart';
+import 'bank_wallet_screen.dart'; // import mới
+import 'add_bank_wallet_screen.dart'; // import mới
 
-
-/// Updated AccountScreen: removed Categories & Bills, added Profile menu.
 class AccountScreen extends StatelessWidget {
   static const String routeName = '/account';
 
-
   const AccountScreen({super.key});
-
 
   @override
   Widget build(BuildContext context) {
     final currentUser = AuthRepository().currentUser;
     final email = currentUser?.email ?? '';
     final avatarText = (email.isNotEmpty ? email[0] : 'U').toUpperCase();
-
 
     return Scaffold(
       appBar: AppBar(
@@ -46,7 +43,6 @@ class AccountScreen extends StatelessWidget {
           ],
           const SizedBox(height: 24),
 
-
           // My Wallets
           ListTile(
             leading: const Icon(Icons.account_balance_wallet_outlined),
@@ -56,6 +52,20 @@ class AccountScreen extends StatelessWidget {
             },
           ),
 
+          // View Bank Wallet (FE mock)
+
+          ListTile(
+            leading: const Icon(Icons.account_balance, color: Colors.blue),
+            title: const Text('Add Bank Wallet (FE mock)'),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AddBankWalletScreen(),
+                ),
+              );
+            },
+          ),
 
           // Change Password
           ListTile(
@@ -68,7 +78,7 @@ class AccountScreen extends StatelessWidget {
               );
             },
           ),
-          
+
           // Theme
           Consumer<SettingsProvider>(
             builder: (context, settings, child) => ListTile(
@@ -82,7 +92,7 @@ class AccountScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Language
           Consumer<SettingsProvider>(
             builder: (context, settings, child) => ListTile(
@@ -102,7 +112,7 @@ class AccountScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Currency
           Consumer<SettingsProvider>(
             builder: (context, settings, child) => ListTile(
@@ -114,7 +124,7 @@ class AccountScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Date Format
           Consumer<SettingsProvider>(
             builder: (context, settings, child) => ListTile(
@@ -123,9 +133,12 @@ class AccountScreen extends StatelessWidget {
               trailing: DropdownButton<String>(
                 value: settings.dateFormat,
                 items: const [
-                  DropdownMenuItem(value: 'dd/MM/yyyy', child: Text('DD/MM/YYYY')),
-                  DropdownMenuItem(value: 'MM/dd/yyyy', child: Text('MM/DD/YYYY')),
-                  DropdownMenuItem(value: 'yyyy-MM-dd', child: Text('YYYY-MM-DD')),
+                  DropdownMenuItem(
+                      value: 'dd/MM/yyyy', child: Text('DD/MM/YYYY')),
+                  DropdownMenuItem(
+                      value: 'MM/dd/yyyy', child: Text('MM/DD/YYYY')),
+                  DropdownMenuItem(
+                      value: 'yyyy-MM-dd', child: Text('YYYY-MM-DD')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -147,14 +160,12 @@ class AccountScreen extends StatelessWidget {
 
           const Divider(height: 32),
 
-
           // Sign out
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.redAccent),
             title: const Text('Sign out'),
             subtitle: email.isNotEmpty ? Text(email) : null,
             onTap: () {
-              // Here you might want to call your authRepository.signOut() before navigating
               Navigator.of(context).pushNamedAndRemoveUntil(
                 LoginScreen.routeName,
                 (route) => false,
@@ -166,6 +177,3 @@ class AccountScreen extends StatelessWidget {
     );
   }
 }
-
-
-
