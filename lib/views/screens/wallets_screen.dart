@@ -192,12 +192,12 @@ class _WalletsScreenState extends State<WalletsScreen> {
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            subtitle: const Text(
-                              'Balance: 0 ₫',
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
+                            // subtitle: const Text(
+                            //   'Balance: 0 ₫',
+                            //   style: TextStyle(
+                            //     color: Colors.grey,
+                            //   ),
+                            // ),
                             trailing: const Icon(
                               Icons.chevron_right,
                               color: Colors.grey,

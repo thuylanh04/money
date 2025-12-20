@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'theme/app_theme.dart';
 import 'providers/settings_provider.dart';
+import 'providers/auth_provider.dart';
 import 'views/screens/account_screen.dart';
 import 'views/screens/bills_screen.dart';
 import 'views/screens/home_screen.dart';
@@ -25,20 +26,24 @@ import 'views/screens/categories_screen.dart';
 class MoneyFinwiseApp extends StatelessWidget {
   const MoneyFinwiseApp({super.key});
 
-
   @override
   Widget build(BuildContext context) {
-    return Consumer<SettingsProvider>(
-      builder: (context, settings, _) {
+    return Consumer2<SettingsProvider, AuthProvider>(
+      builder: (context, settings, auth, _) {
         return MaterialApp(
           title: 'Money — Finwise',
           debugShowCheckedModeBanner: false,
           theme: settings.isDarkMode ? AppTheme.darkTheme : AppTheme.lightTheme,
           onGenerateRoute: _onGenerateRoute,
-          initialRoute: SplashScreen.routeName,
+          initialRoute: _getInitialRoute(auth),
         );
       },
     );
+  }
+
+  String _getInitialRoute(AuthProvider auth) {
+    // Always start with splash screen which will handle the initial routing
+    return SplashScreen.routeName;
   }
 
 

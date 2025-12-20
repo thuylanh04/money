@@ -10,25 +10,19 @@ import 'package:intl/intl.dart';
 import 'package:dio/dio.dart';
 import 'package:http_parser/http_parser.dart';
 
-
 class TransactionService {
   final ApiClient _client;
   static final TransactionService _instance =
       TransactionService._internal(ApiClient());
 
-
   factory TransactionService() => _instance;
-
 
   static TransactionService get instance => _instance;
 
-
   TransactionService._internal(this._client);
-
 
   // Cache for categories
   Map<String, Map<String, dynamic>>? _categoriesCache;
-
 
   // Get all categories and cache them
   Future<Map<String, Map<String, dynamic>>> getCategories() async {
@@ -36,15 +30,12 @@ class TransactionService {
       return _categoriesCache!;
     }
 
-
     try {
       final response = await _client.get('/api/v1/categories');
-
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         final List<dynamic> categories = response['result'] ?? [];
         _categoriesCache = {};
-
 
         for (var category in categories) {
           _categoriesCache![category['idFE']] = {
@@ -54,10 +45,8 @@ class TransactionService {
           };
         }
 
-
         return _categoriesCache!;
       }
-
 
       throw Exception('Failed to load categories');
     } catch (e) {
@@ -66,11 +55,9 @@ class TransactionService {
     }
   }
 
-
   // Helper to determine group type from groupIdFE
   String _getGroupType(String? groupIdFE) {
     if (groupIdFE == null) return 'expense';
-
 
     if (groupIdFE.startsWith('Income')) {
       return 'income';
@@ -81,7 +68,6 @@ class TransactionService {
     }
     return 'expense'; // Default to expense
   }
-
 
   Future<Map<String, dynamic>> createTransaction({
     required double amount,
@@ -97,13 +83,11 @@ class TransactionService {
         throw Exception('No user ID found');
       }
 
-
       // Get authentication token
       final token = await StorageService.getToken();
       if (token == null || token.isEmpty) {
         throw Exception('No authentication token found');
       }
-
 
       // Create transaction payload matching updateTransaction
       final transactionData = {
@@ -116,7 +100,6 @@ class TransactionService {
         if (note != null && note.isNotEmpty) "note": note,
       };
 
-
       final formData = FormData();
       formData.files.add(
         MapEntry(
@@ -127,7 +110,6 @@ class TransactionService {
           ),
         ),
       );
-
 
       if (files != null && files.isNotEmpty) {
         for (var file in files) {
@@ -143,7 +125,6 @@ class TransactionService {
         }
       }
 
-
       // Send the request using Dio
       final dio = Dio();
       final response = await dio.post(
@@ -157,7 +138,6 @@ class TransactionService {
           contentType: 'multipart/form-data',
         ),
       );
-
 
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
         final responseData = response.data;
@@ -177,7 +157,6 @@ class TransactionService {
     }
   }
 
-
   Future<List<Transaction>> getUserTransactions() async {
     try {
       final userId = await StorageService.getUid();
@@ -185,13 +164,10 @@ class TransactionService {
         throw Exception('No user ID found');
       }
 
-
       // Load categories first
       final categories = await getCategories();
 
-
       final response = await _client.get('/api/v1/transactions/user/$userId');
-
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         final List<dynamic> transactionsData = response['result'] ?? [];
@@ -226,7 +202,6 @@ class TransactionService {
     }
   }
 
-
   /// Fetch a single transaction by idFE from the API and return a [Transaction].
   /// Enriches the returned transaction with category group info when available.
   Future<Transaction> transactionDetail(String transactionId) async {
@@ -234,14 +209,11 @@ class TransactionService {
       // Load categories first for enrichment
       final categories = await getCategories();
 
-
       final response = await _client.get('/api/v1/transactions/$transactionId');
-
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         final Map<String, dynamic> json = response['result'] ?? {};
         final transaction = Transaction.fromJson(json);
-
 
         final categoryInfo = categories[transaction.categoryIdFE];
         if (categoryInfo != null) {
@@ -260,7 +232,6 @@ class TransactionService {
           );
         }
 
-
         return transaction;
       } else {
         throw Exception(
@@ -271,7 +242,6 @@ class TransactionService {
       rethrow;
     }
   }
-
 
   Future<Transaction> updateTransaction({
     required String transactionId,
@@ -285,22 +255,18 @@ class TransactionService {
   }) async {
     final dio = Dio();
 
-
     final authToken = token ?? await StorageService.getToken();
     if (authToken == null || authToken.isEmpty) {
       throw Exception('No authentication token found');
     }
-
 
     final userId = await StorageService.getUid();
     if (userId == null) {
       throw Exception('No user ID found');
     }
 
-
     final String url =
-        "https://50dae6987226.ngrok-free.app/api/v1/transactions";
-
+        "https://3f6be07f7696.ngrok-free.app/api/v1/transactions";
 
     final transactionData = {
       "idFE": transactionId,
@@ -312,12 +278,9 @@ class TransactionService {
       if (note != null && note.isNotEmpty) "note": note,
     };
 
-
     final transactionJson = jsonEncode(transactionData);
 
-
     final formData = FormData();
-
 
     formData.files.add(
       MapEntry(
@@ -328,7 +291,6 @@ class TransactionService {
         ),
       ),
     );
-
 
     if (files != null && files.isNotEmpty) {
       for (var file in files) {
@@ -344,7 +306,6 @@ class TransactionService {
       }
     }
 
-
     try {
       final response = await dio.put(
         url,
@@ -354,7 +315,6 @@ class TransactionService {
           contentType: "multipart/form-data",
         ),
       );
-
 
       // ✅ Convert response.data sang Transaction
       if (response.data is Map<String, dynamic> &&
@@ -370,13 +330,11 @@ class TransactionService {
     }
   }
 
-
   Future<bool> deleteTransaction(String transactionId) async {
     try {
       final response = await _client.delete(
         '/api/v1/transactions/$transactionId',
       );
-
 
       if (response is Map<String, dynamic> && response['code'] == 1000) {
         return true;
@@ -390,6 +348,3 @@ class TransactionService {
     }
   }
 }
-
-
-

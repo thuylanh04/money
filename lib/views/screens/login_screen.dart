@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/auth_provider.dart';
 import '../../repositories/auth_repository.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/validators.dart';
@@ -29,24 +31,31 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     final email = _emailController.text;
     final password = _passwordController.text;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     if (!Validators.isValidEmail(email) || !Validators.isValidPassword(password)) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid email and password.')),
       );
       return;
     }
-    _signInWithRepository(email, password);
-  }
-
-  Future<void> _signInWithRepository(String email, String password) async {
+    
     try {
-      await _authRepository.signIn(email: email, password: password);
+      final user = await _authRepository.login(email, password);
+      
       if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+      
+      // Save user to AuthProvider which will handle saving to SharedPreferences
+      authProvider.setUser(user);
+      
+      // Navigate to home screen
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed(HomeScreen.routeName);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

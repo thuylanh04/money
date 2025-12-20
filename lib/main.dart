@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'app.dart';
 import 'providers/settings_provider.dart';
+import 'providers/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,9 @@ void main() async {
       providers: [
         ChangeNotifierProvider(
           create: (_) => SettingsProvider(prefs),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider(prefs),
         ),
       ],
       child: const MoneyFinwiseApp(),
