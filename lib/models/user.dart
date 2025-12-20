@@ -1,20 +1,21 @@
 class User {
-  final String id;
-  final String name;
-  final String email;
-  String? token;
-   User({
-    required this.id,
-    required this.name,
-    required this.email,
-      this.token = '',
+  final String? id;
+  final String? name;
+  final String? email;
+  final String? token;
+  
+  User({
+    this.id,
+    this.name,
+    this.email,
+    this.token,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      email: json['email'] as String,
+      id: json['id'] as String?,
+      name: json['name'] as String?,
+      email: json['email'] as String?,
       token: json['token'] as String?,
     );
   }
@@ -26,5 +27,19 @@ class User {
       'email': email,
       'token': token,
     };
+  }
+
+  User copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? token,
+  }) {
+    return User(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      token: token ?? this.token,
+    );
   }
 }

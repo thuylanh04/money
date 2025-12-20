@@ -24,7 +24,9 @@ class MockAuthService implements AuthService {
     final user = User(id: '1', name: 'Demo User', email: email);
     await StorageService.saveToken(
         'mock_token_${DateTime.now().millisecondsSinceEpoch}');
-    await StorageService.saveUid(user.id);
+    if (user.id != null) {
+      await StorageService.saveUid(user.id!);
+    }
     return user;
   }
 
@@ -49,7 +51,9 @@ class MockAuthService implements AuthService {
     final user = User(id: '1', name: 'New User', email: email);
     await StorageService.saveToken(
         'mock_token_${DateTime.now().millisecondsSinceEpoch}');
-    await StorageService.saveUid(user.id);
+    if (user.id != null) {
+      await StorageService.saveUid(user.id!);
+    }
     return user;
   }
 }
@@ -88,7 +92,9 @@ class ApiAuthService implements AuthService {
             return User(id: idFE, name: email, email: userEmail);
           }
 
-          return User(id: 'unknown', name: email, email: email);
+          // Use email as ID if idFE is not available
+          await StorageService.saveUid(email);
+          return User(id: email, name: email, email: email);
         }
       }
     } catch (e) {
@@ -125,8 +131,12 @@ class ApiAuthService implements AuthService {
             uid.isNotEmpty) {
           EnvConfig.apiAuthHeader = 'Bearer $token';
           await StorageService.saveToken(token);
-          await StorageService.saveUid(uid);
-          return User(id: uid, name: email, email: email);
+          if (uid != null) {
+            await StorageService.saveUid(uid);
+          } else {
+            await StorageService.saveUid(email);
+          }
+          return User(id: uid ?? email, name: email, email: email);
         }
       }
 
@@ -134,6 +144,7 @@ class ApiAuthService implements AuthService {
       final code = data['code'];
       if ((code is int && code == 1000) || (code is String && code == '1000')) {
         // No token provided: return a lightweight User and require sign-in separately
+        await StorageService.saveUid(email);
         return User(id: email, name: email, email: email);
       }
     } catch (e) {
