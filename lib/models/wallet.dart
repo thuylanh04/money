@@ -13,4 +13,11 @@ class Wallet {
       walletName: json['walletName'] ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'idFE': idFE,
+      'walletName': walletName,
+    };
+  }
 }

@@ -13,4 +13,11 @@ class CategoryGroup {
       groupName: json['groupName'] as String,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'idFE': idFE,
+      'groupName': groupName,
+    };
+  }
 }

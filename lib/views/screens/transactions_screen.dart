@@ -8,7 +8,7 @@ import 'package:expandable/expandable.dart';
 
 class TransactionsScreen extends StatefulWidget {
   static const String routeName = '/transactions';
-  
+
   const TransactionsScreen({Key? key}) : super(key: key);
 
   @override
@@ -20,7 +20,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   List<Transaction> _filteredTransactions = [];
   bool _isLoading = true;
   String _error = '';
-  
+
   // Time filter options
   late final List<Map<String, dynamic>> _timeFilters;
   late Map<String, dynamic> _selectedFilter;
@@ -31,7 +31,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final formatter = NumberFormat('#,###', 'en_US');
     return formatter.format(amount);
   }
-  
+
   // Helper method to determine if transaction is income
   bool _isIncome(Transaction transaction) {
     return transaction.groupType == 'income';
@@ -40,7 +40,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize time filters with past 12 months
     final now = DateTime.now();
     _timeFilters = List.generate(12, (index) {
@@ -54,10 +54,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         'key': monthKey,
       };
     }).reversed.toList();
-    
+
     // Set the current month as default
     _selectedFilter = _timeFilters.last;
-    
+
     _loadTransactions();
   }
 
@@ -71,13 +71,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   void _scrollToSelectedMonth() {
     if (_scrollController.hasClients) {
       // Find the index of the current month in the filters
-      final index = _timeFilters.indexWhere((filter) => filter['key'] == _selectedFilter['key']);
+      final index = _timeFilters
+          .indexWhere((filter) => filter['key'] == _selectedFilter['key']);
       if (index != -1) {
         // Calculate the position to scroll to
         final double itemWidth = 100.0; // Approximate width of each filter item
         final double screenWidth = MediaQuery.of(context).size.width;
-        final double scrollPosition = (itemWidth * index) - (screenWidth / 2) + (itemWidth / 2);
-        
+        final double scrollPosition =
+            (itemWidth * index) - (screenWidth / 2) + (itemWidth / 2);
+
         // Animate the scroll
         _scrollController.animateTo(
           scrollPosition.clamp(0.0, _scrollController.position.maxScrollExtent),
@@ -106,7 +108,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           _applyFilter(_selectedFilter);
           _isLoading = false;
         });
-        
+
         // Wait for the next frame to ensure the UI is built
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _scrollToSelectedMonth();
@@ -130,12 +132,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       _selectedFilter = filter;
       final year = filter['year'] as int;
       final month = filter['month'] as int;
-      
+
       _filteredTransactions = _transactions.where((transaction) {
         final transactionDate = transaction.date;
         return transactionDate.year == year && transactionDate.month == month;
       }).toList();
-      
+
       // Sort by date in descending order (newest first)
       _filteredTransactions.sort((a, b) => b.date.compareTo(a.date));
     });
@@ -147,7 +149,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Transaction'),
-        content: const Text('Are you sure you want to delete this transaction?'),
+        content:
+            const Text('Are you sure you want to delete this transaction?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -166,15 +169,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
     try {
       final transactionService = TransactionService();
-      final success = await transactionService.deleteTransaction(transaction.idFE);
-      
+      final success =
+          await transactionService.deleteTransaction(transaction.idFE);
+
       if (success && mounted) {
         // Remove the transaction from the list
         setState(() {
           _transactions.removeWhere((t) => t.idFE == transaction.idFE);
           _applyFilter(_selectedFilter); // Refresh the filtered list
         });
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Transaction deleted successfully')),
@@ -213,9 +217,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   child: GestureDetector(
                     onTap: () => _applyFilter(filter),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? Theme.of(context).primaryColor : Colors.grey[200],
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : Colors.grey[200],
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Center(
@@ -223,7 +230,9 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           filter['label'],
                           style: TextStyle(
                             color: isSelected ? Colors.white : Colors.grey[800],
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -242,17 +251,17 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   // Helper method to group transactions by date
   Map<String, List<Transaction>> _groupTransactionsByDate() {
     final Map<String, List<Transaction>> groupedTransactions = {};
-    
+
     for (final transaction in _filteredTransactions) {
       final dateKey = DateFormat('dd/MM/yyyy').format(transaction.date);
-      
+
       if (!groupedTransactions.containsKey(dateKey)) {
         groupedTransactions[dateKey] = [];
       }
-      
+
       groupedTransactions[dateKey]!.add(transaction);
     }
-    
+
     // Sort the map by date in descending order (newest first)
     final sortedKeys = groupedTransactions.keys.toList()
       ..sort((a, b) {
@@ -260,12 +269,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         final dateB = DateFormat('dd/MM/yyyy').parse(b);
         return dateB.compareTo(dateA);
       });
-    
+
     final sortedMap = <String, List<Transaction>>{};
     for (var key in sortedKeys) {
       sortedMap[key] = groupedTransactions[key]!;
     }
-    
+
     return sortedMap;
   }
 
@@ -279,8 +288,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('Error: $_error'),
-            const SizedBox(height: 16),
+            Center(
+                child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                        'You are offline. Please check your internet connection and try again.',
+                        style: const TextStyle(color: Colors.red)))),
             ElevatedButton(
               onPressed: _loadTransactions,
               child: const Text('Try Again'),
@@ -294,13 +307,15 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       return Column(
         children: [
           const SizedBox(height: 20),
-          Center(child: Text('No transactions found in ${_selectedFilter['label']}')),
+          Center(
+              child:
+                  Text('No transactions found in ${_selectedFilter['label']}')),
         ],
       );
     }
 
     final groupedTransactions = _groupTransactionsByDate();
-    
+
     return RefreshIndicator(
       onRefresh: _loadTransactions,
       child: ListView.builder(
@@ -309,13 +324,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         itemBuilder: (context, index) {
           final dateKey = groupedTransactions.keys.elementAt(index);
           final transactions = groupedTransactions[dateKey]!;
-          
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Date header
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                 child: Text(
                   dateKey,
                   style: TextStyle(
@@ -325,7 +341,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   ),
                 ),
               ),
-              
+
               // List of transactions for this date
               ListView.builder(
                 shrinkWrap: true,
@@ -338,14 +354,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: _isIncome(transaction)
-                            ? Colors.green.withOpacity(0.1) 
+                            ? Colors.green.withOpacity(0.1)
                             : Colors.red.withOpacity(0.1),
                         child: Icon(
                           _isIncome(transaction)
-                              ? Icons.arrow_downward 
+                              ? Icons.arrow_downward
                               : Icons.arrow_upward,
                           color: _isIncome(transaction)
-                              ? Colors.green 
+                              ? Colors.green
                               : Colors.red,
                           size: 20,
                         ),
@@ -364,8 +380,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           Text(
                             '${_isIncome(transaction) ? '+' : '-'}${_formatCurrency(transaction.amount.abs())}',
                             style: TextStyle(
-                              color: _isIncome(transaction) 
-                                  ? Colors.green 
+                              color: _isIncome(transaction)
+                                  ? Colors.green
                                   : Colors.red,
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -382,12 +398,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ),
                       onTap: () async {
                         // Wait for the transaction detail screen to return a result
-                        final shouldRefresh = await Navigator.of(context).push<bool>(
+                        final shouldRefresh =
+                            await Navigator.of(context).push<bool>(
                           MaterialPageRoute<bool>(
-                            builder: (context) => TransactionDetailScreen(transaction: transaction),
+                            builder: (context) => TransactionDetailScreen(
+                                transaction: transaction),
                           ),
                         );
-                        
+
                         // If the transaction was deleted in the detail screen, refresh the list
                         if (shouldRefresh == true) {
                           _loadTransactions();
@@ -401,7 +419,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   );
                 },
               ),
-              
+
               // Add some space between date groups
               const SizedBox(height: 8),
             ],
@@ -411,7 +429,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  Widget _buildTransactionDetails(Transaction transaction, String formattedDate) {
+  Widget _buildTransactionDetails(
+      Transaction transaction, String formattedDate) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -419,25 +438,21 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         children: [
           const Divider(height: 1),
           const SizedBox(height: 12),
-          
           if (transaction.note?.isNotEmpty ?? false) ...[
             _buildDetailRow('Note', transaction.note!),
             const SizedBox(height: 8),
           ],
-          
           if (transaction.walletName?.isNotEmpty ?? false)
             _buildDetailRow('Wallet', transaction.walletName!),
-          
           if (transaction.image != null) ...[
             const SizedBox(height: 8),
             _buildDetailRow(
-              'Receipt', 
+              'Receipt',
               'Attached',
               icon: Icons.receipt,
               iconColor: Colors.blue,
             ),
           ],
-          
           const SizedBox(height: 4),
           Text(
             'ID: ${transaction.idFE}',
@@ -452,7 +467,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {IconData? icon, Color? iconColor}) {
+  Widget _buildDetailRow(String label, String value,
+      {IconData? icon, Color? iconColor}) {
     return Row(
       children: [
         if (icon != null) ...[
