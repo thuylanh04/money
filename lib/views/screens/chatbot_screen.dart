@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:money_manage/theme/app_theme.dart';
 
-
-
-
 /// Simple chat message model
 class ChatMessage {
   final String text;
@@ -12,22 +9,13 @@ class ChatMessage {
   ChatMessage({required this.text, this.isUser = true}) : time = DateTime.now();
 }
 
-
-
-
 /// Chatbot screen for Money - FinWise (basic tips only, English)
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({Key? key}) : super(key: key);
 
-
-
-
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();
 }
-
-
-
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
   final TextEditingController _controller = TextEditingController();
@@ -36,30 +24,72 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _isBotTyping = false;
   final ScrollController _scrollController = ScrollController();
 
-
-
-
   // Basic suggested questions (English)
   final List<String> _suggestedQuestions = [
     "How to manage my monthly budget?",
     "Tips to save money effectively?",
     "How to reduce unnecessary expenses?",
-    "How to track my spending habits?"
-  ];
+    "How to track my spending habits?",
 
+    // NEW
+    "How much should I save each month?",
+    "How to plan expenses with a low income?",
+    "How to control daily spending?",
+    "How to set financial goals?",
+    "How to analyze my income and expenses?",
+    "How to stick to a budget?",
+    "How to avoid impulse buying?",
+    "How to manage subscriptions and bills?"
+  ];
 
   // Visible suggestions (will be updated based on last user input)
   List<String> _visibleSuggestions = [];
-
 
   // Simple keyword mapping for suggestions
   final Map<String, List<String>> _suggestionKeywords = {
     "How to manage my monthly budget?": ['budget', 'monthly', 'manage'],
     "Tips to save money effectively?": ['save', 'saving', 'savings'],
-    "How to reduce unnecessary expenses?": ['reduce', 'cut', 'unnecessary', 'expenses'],
-    "How to track my spending habits?": ['track', 'spend', 'spending', 'habits']
-  };
+    "How to reduce unnecessary expenses?": [
+      'reduce',
+      'cut',
+      'unnecessary',
+      'expenses'
+    ],
+    "How to track my spending habits?": [
+      'track',
+      'spend',
+      'spending',
+      'habits'
+    ],
 
+    // NEW
+    "How much should I save each month?": [
+      'how much',
+      'save',
+      'month',
+      'saving'
+    ],
+    "How to plan expenses with a low income?": [
+      'low income',
+      'small income',
+      'plan'
+    ],
+    "How to control daily spending?": ['daily', 'control', 'spending'],
+    "How to set financial goals?": ['goal', 'financial', 'target'],
+    "How to analyze my income and expenses?": [
+      'analyze',
+      'analysis',
+      'income',
+      'expense'
+    ],
+    "How to stick to a budget?": ['stick', 'follow', 'budget'],
+    "How to avoid impulse buying?": ['impulse', 'buying', 'shopping'],
+    "How to manage subscriptions and bills?": [
+      'subscription',
+      'bill',
+      'monthly'
+    ]
+  };
 
   // Related suggestion alternatives: when user already asked one suggestion, show different but related suggestions
   final Map<String, List<String>> _relatedSuggestions = {
@@ -78,20 +108,26 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     "How to track my spending habits?": [
       "Best ways to record daily expenses",
       "How to categorize spending for analysis?"
+    ],
+    // NEW
+    "How to analyze my income and expenses?": [
+      "How to read income vs expense charts?",
+      "What does overspending look like?",
+      "How to improve my cash flow?"
+    ],
+
+    "How to avoid impulse buying?": [
+      "How to control emotional spending?",
+      "Rules before making a purchase",
+      "How to delay unnecessary purchases?"
     ]
   };
-
-
-
-
-
 
   @override
   void initState() {
     super.initState();
     // start with all suggestions visible
     _visibleSuggestions = List.from(_suggestedQuestions);
-
 
     // Add welcome message with a short delay
     Future.delayed(const Duration(milliseconds: 400), () {
@@ -102,16 +138,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
-
-
-
   @override
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
-
 
   void _addBotMessage(String text) {
     setState(() {
@@ -120,16 +152,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     });
   }
 
-
   void _showSuggestedQuestions() {
     Future.delayed(const Duration(milliseconds: 250), () {
       setState(() {
-        _messages.insert(0, ChatMessage(text: "Try one of these:", isUser: false));
+        _messages.insert(
+            0, ChatMessage(text: "Try one of these:", isUser: false));
         _scrollToBottom();
       });
     });
   }
-
 
   /// Update visible suggestions using keywords from the last user message.
   /// If the last user message exactly matches one of the suggestions, show related
@@ -144,7 +175,6 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       return;
     }
 
-
     // Find direct suggestion matches by keywords
     final matches = <String>[];
     for (final suggestion in _suggestedQuestions) {
@@ -154,22 +184,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       }
     }
 
-
     // If user exactly sent one of the suggestions, exclude it and show related alternatives
     final exactMatch = _suggestedQuestions.firstWhere(
       (s) => s.toLowerCase() == text.trim().toLowerCase(),
       orElse: () => '',
     );
 
-
     final result = <String>[];
-
 
     if (exactMatch.isNotEmpty) {
       // Get related alternatives for the exact match, if available
       final related = _relatedSuggestions[exactMatch] ?? [];
       result.addAll(related);
-
 
       // Also add other suggestions that are keyword matches (but avoid the exact one)
       for (final m in matches) {
@@ -184,18 +210,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       }
     }
 
-
     // Remove duplicates and ensure we don't show the exact user question
     final visible = result
         .where((s) => s.toLowerCase() != text.trim().toLowerCase())
         .toList();
 
-
     setState(() {
-      _visibleSuggestions = visible.isNotEmpty ? visible : List.from(_suggestedQuestions);
+      _visibleSuggestions =
+          visible.isNotEmpty ? visible : List.from(_suggestedQuestions);
     });
   }
-
 
   /// Mock AI response. ONLY provides basic advice (budgeting, saving, spending tips).
   /// Replace with real API later if needed.
@@ -204,17 +228,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     await Future.delayed(const Duration(seconds: 2));
     final p = prompt.toLowerCase();
 
-
-
-
     if (p.contains('hello') || p.contains('hi')) {
       return "Hi! I'm FinWise Assistant — I can share quick tips on budgeting, saving, and tracking expenses.";
     }
 
-
-
-
-    if (p.contains('budget') || p.contains('manage my monthly') || p.contains('monthly budget')) {
+    if (p.contains('budget') ||
+        p.contains('manage my monthly') ||
+        p.contains('monthly budget')) {
       return """Simple monthly budgeting (starter):
 1. Use the 50/30/20 rule: 50% needs, 30% wants, 20% savings.
 2. List recurring bills first (rent, utilities).
@@ -223,10 +243,9 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 Would you like a quick template?""";
     }
 
-
-
-
-    if (p.contains('save') || p.contains('saving') || p.contains('tips to save')) {
+    if (p.contains('save') ||
+        p.contains('saving') ||
+        p.contains('tips to save')) {
       return """Quick saving tips:
 • Automate transfers to savings each payday.
 • Wait 24 hours before big purchases to avoid impulse buys.
@@ -235,10 +254,9 @@ Would you like a quick template?""";
 Small changes add up — try one for a month.""";
     }
 
-
-
-
-    if (p.contains('reduce') || p.contains('unnecessary') || p.contains('cut expenses')) {
+    if (p.contains('reduce') ||
+        p.contains('unnecessary') ||
+        p.contains('cut expenses')) {
       return """How to cut unnecessary spending:
 1. Identify top 3 spending categories.
 2. Set a small % reduction goal (e.g., -10%).
@@ -246,10 +264,9 @@ Small changes add up — try one for a month.""";
 4. Track results and keep what works.""";
     }
 
-
-
-
-    if (p.contains('track') || p.contains('track my spending') || p.contains('spending habits')) {
+    if (p.contains('track') ||
+        p.contains('track my spending') ||
+        p.contains('spending habits')) {
       return """Tracking basics:
 • Record each expense (small or large).
 • Categorize immediately (food, transport, bills).
@@ -257,30 +274,36 @@ Small changes add up — try one for a month.""";
 • Set simple goals (e.g., limit dining out to X/month).""";
     }
 
-
-
-
     // If user asks for tips but doesn't match keywords
     if (p.contains('tips') || p.contains('advice') || p.contains('help')) {
       return "I can help with budgeting, saving strategies, expense trimming, and tracking habits. Which one do you want to start with?";
     }
 
+    //NEW
+    if (p.contains('impulse')) {
+      return """To avoid impulse buying:
+• Wait 24 hours before purchasing.
+• Set a monthly fun-spending limit.
+• Remove shopping apps if needed.
+• Track every impulse purchase to see patterns.""";
+    }
 
-
+    if (p.contains('financial goals') || p.contains('set goals')) {
+      return """Setting financial goals:
+1. Define short-term and long-term goals.
+2. Make goals specific (amount + deadline).
+3. Track progress monthly.
+4. Adjust if income changes.""";
+    }
 
     // Default fallback for other inputs
     return "I give short, practical tips on budgeting, saving, and tracking expenses. Try: \"How to manage my monthly budget?\" or \"Tips to save money effectively?\"";
   }
 
-
-
-
   void _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
-    if (_isSending || _isBotTyping) return; // prevent spamming while bot is typing
-
-
-
+    if (_isSending || _isBotTyping)
+      return; // prevent spamming while bot is typing
 
     setState(() {
       _messages.insert(0, ChatMessage(text: text, isUser: true));
@@ -288,21 +311,13 @@ Small changes add up — try one for a month.""";
       _isBotTyping = true;
     });
 
-
     // update suggestions based on this user message
     _updateSuggestions(text);
-
 
     _controller.clear();
     _scrollToBottom();
 
-
-
-
     final botReply = await _getBotResponse(text);
-
-
-
 
     if (!mounted) return;
     setState(() {
@@ -311,14 +326,8 @@ Small changes add up — try one for a month.""";
       _isBotTyping = false;
     });
 
-
-
-
     _scrollToBottom();
   }
-
-
-
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
@@ -331,9 +340,6 @@ Small changes add up — try one for a month.""";
     }
   }
 
-
-
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -341,9 +347,6 @@ Small changes add up — try one for a month.""";
     final primaryColor = theme.primaryColor;
     final backgroundColor = isDarkMode ? const Color(0xFF121212) : Colors.white;
     final textColor = isDarkMode ? Colors.white : Colors.black87;
-
-
-
 
     return Scaffold(
       appBar: AppBar(
@@ -392,24 +395,24 @@ Small changes add up — try one for a month.""";
                       itemCount: _messages.length,
                       itemBuilder: (context, index) {
                         final message = _messages[index];
-                        return _buildMessageBubble(message, theme, primaryColor);
+                        return _buildMessageBubble(
+                            message, theme, primaryColor);
                       },
                     ),
             ),
 
-
-
-
             // Typing indicator (shows when bot is preparing reply)
             if (_isBotTyping)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 14,
                       backgroundColor: primaryColor,
-                      child: const Icon(Icons.savings, size: 14, color: Colors.white),
+                      child: const Icon(Icons.savings,
+                          size: 14, color: Colors.white),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -424,7 +427,8 @@ Small changes add up — try one for a month.""";
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: List.generate(3, (i) {
                                 return AnimatedContainer(
-                                  duration: Duration(milliseconds: 300 + i * 100),
+                                  duration:
+                                      Duration(milliseconds: 300 + i * 100),
                                   width: 6,
                                   height: 6,
                                   decoration: BoxDecoration(
@@ -442,9 +446,6 @@ Small changes add up — try one for a month.""";
                 ),
               ),
 
-
-
-
             // Suggestions bar - always visible and responsive to last user message
             _buildSuggestedQuestions(theme, primaryColor),
             _buildInputField(theme, isDarkMode, primaryColor),
@@ -454,13 +455,11 @@ Small changes add up — try one for a month.""";
     );
   }
 
-
-
-
   Widget _buildSuggestedQuestions(ThemeData theme, Color primaryColor) {
-    // Always show the suggestions bar. Use _visibleSuggestions computed from the last user input.
-    final items = _visibleSuggestions;
-
+    final List<String> items = [..._visibleSuggestions, ..._suggestedQuestions]
+        .toSet()
+        .take(4)
+        .toList();
 
     return Container(
       height: 50,
@@ -477,7 +476,6 @@ Small changes add up — try one for a month.""";
                 style: TextStyle(color: theme.primaryColor),
               ),
               onPressed: () {
-                // put suggestion into input field and send immediately
                 _controller.text = items[index];
                 _sendMessage(items[index]);
               },
@@ -490,27 +488,22 @@ Small changes add up — try one for a month.""";
     );
   }
 
-
-
-
-  Widget _buildMessageBubble(ChatMessage message, ThemeData theme, Color primaryColor) {
+  Widget _buildMessageBubble(
+      ChatMessage message, ThemeData theme, Color primaryColor) {
     final isUser = message.isUser;
     final bgColor = isUser
         ? primaryColor
-        : (theme.brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]);
-
-
-
+        : (theme.brightness == Brightness.dark
+            ? Colors.grey[800]
+            : Colors.grey[200]);
 
     final textColor = isUser ? Colors.white : theme.textTheme.bodyLarge?.color;
-
-
-
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser)
@@ -568,10 +561,8 @@ Small changes add up — try one for a month.""";
     );
   }
 
-
-
-
-  Widget _buildInputField(ThemeData theme, bool isDarkMode, Color primaryColor) {
+  Widget _buildInputField(
+      ThemeData theme, bool isDarkMode, Color primaryColor) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -597,8 +588,11 @@ Small changes add up — try one for a month.""";
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: isDarkMode ? Colors.grey[800]?.withOpacity(0.5) : Colors.grey[100],
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  fillColor: isDarkMode
+                      ? Colors.grey[800]?.withOpacity(0.5)
+                      : Colors.grey[100],
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
                 textInputAction: TextInputAction.send,
                 onSubmitted: _sendMessage,
@@ -616,10 +610,13 @@ Small changes add up — try one for a month.""";
                     ? SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
                       )
                     : const Icon(Icons.send, color: Colors.white),
-                onPressed: (_isSending || _isBotTyping) ? null : () => _sendMessage(_controller.text.trim()),
+                onPressed: (_isSending || _isBotTyping)
+                    ? null
+                    : () => _sendMessage(_controller.text.trim()),
               ),
             ),
           ],
